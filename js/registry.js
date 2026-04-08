@@ -126,7 +126,7 @@ export function useRegistry(identity, ethersSigner, network, onSuccess) {
   const deactivate = useCallback(async () => {
     if (!ethersSigner || !network || !identity) return;
     return runTx(
-      () => getContract().changeOwner(identity, '0x000000000000000000000000000000000000dEaD'),
+      () => getContract().changeOwner(identity, ethers.ZeroAddress),
       'DID deactivated.',
     );
   }, [ethersSigner, network, identity, runTx, getContract]);

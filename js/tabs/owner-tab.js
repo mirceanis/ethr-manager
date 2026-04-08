@@ -58,7 +58,7 @@ export const OwnerTab = ({
     <div class="card card-danger">
       <div class="card-title">DELETE · Deactivate DID</div>
       <div class="warn-box">
-        ⚠ Deactivating transfers ownership to the burn address (0x…dEaD),
+        ⚠ Deactivating transfers ownership to the null address (0x0000000000000000000000000000000000000000),
         making the DID permanently unresolvable and unmanageable.
         This is the closest equivalent to deletion in the did:ethr method
         and is irreversible.

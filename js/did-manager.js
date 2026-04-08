@@ -224,7 +224,7 @@ function DidManager() {
   }, [newOwner, registry]);
 
   const handleDeactivate = useCallback(async () => {
-    if (!confirm('Transfer DID ownership to the burn address? This is irreversible.')) return;
+    if (!confirm('Transfer DID ownership to the null address (0x0000000000000000000000000000000000000000)? This is irreversible.')) return;
     await registry.deactivate();
   }, [registry]);
 
