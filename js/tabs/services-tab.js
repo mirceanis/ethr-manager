@@ -7,6 +7,7 @@ import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
 
 /**
  * @param {{
+ *   canManage:        boolean,
  *   didDocument:      object|null,
  *   txPending:        boolean,
  *   svcType:          string,
@@ -20,6 +21,7 @@ import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
  * }} props
  */
 export const ServicesTab = ({
+  canManage,
   didDocument, txPending,
   svcType, svcEndpoint, svcTtl,
   onTypeChange, onEndpointChange, onTtlChange,
@@ -27,18 +29,25 @@ export const ServicesTab = ({
 }) => html`
   <div class="card">
     <div class="card-title">UPDATE · Service Endpoints</div>
+    ${!canManage ? html`
+      <div class="warn-box" style="margin-bottom:16px">
+        Connected wallet is not the current DID controller. Service updates are disabled for this DID.
+      </div>
+    ` : nothing}
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Service Type</label>
         <input class="form-input" placeholder="LinkedDomains"
           .value=${svcType}
-          @input=${e => onTypeChange(e.target.value)}>
+          @input=${e => onTypeChange(e.target.value)}
+          .disabled=${txPending || !canManage}>
       </div>
       <div class="form-group">
         <label class="form-label">Endpoint URL</label>
         <input class="form-input" placeholder="https://example.com"
           .value=${svcEndpoint}
-          @input=${e => onEndpointChange(e.target.value)}>
+          @input=${e => onEndpointChange(e.target.value)}
+          .disabled=${txPending || !canManage}>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
@@ -52,13 +61,13 @@ export const ServicesTab = ({
           onTtlChange(secs);
         }}
         style="width:140px;padding:3px 6px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)"
-        .disabled=${txPending}
+        .disabled=${txPending || !canManage}
       >
       <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">${formatTtl(svcTtl)}</span>
     </div>
     <button class="btn btn-primary"
       @click=${onAddService}
-      .disabled=${txPending || !svcType.trim() || !svcEndpoint.trim()}>
+      .disabled=${txPending || !canManage || !svcType.trim() || !svcEndpoint.trim()}>
       ${txPending ? html`<span class="spinner"></span> Pending…` : '+ Add Service'}
     </button>
 
@@ -74,7 +83,7 @@ export const ServicesTab = ({
             <div class="key-val">${svc.serviceEndpoint}</div>
             <div class="key-val" style="font-size:10px;margin-top:2px">${svc.id}</div>
           </div>
-          <button class="btn btn-danger btn-sm" @click=${() => onRemoveService(svc)} .disabled=${txPending}>Remove</button>
+          <button class="btn btn-danger btn-sm" @click=${() => onRemoveService(svc)} .disabled=${txPending || !canManage}>Remove</button>
         </div>
       `)
     }

@@ -91,7 +91,21 @@ export function useWallet() {
       if (cancelled) return;
       const addr = accounts[0] || null;
       setAccount(addr);
-      if (!addr) setEthersProvider(null);
+      if (!addr) {
+        setEthersProvider(null);
+        setEthersSigner(null);
+        return;
+      }
+      const provider = new ethers.BrowserProvider(eip1193);
+      provider.getSigner(addr).then(signer => {
+        if (!cancelled) {
+          setEthersProvider(provider);
+          setEthersSigner(signer);
+          setError(null);
+        }
+      }).catch(e => {
+        if (!cancelled) setError(e.message);
+      });
     };
 
     const onChain = (hexChainId) => {

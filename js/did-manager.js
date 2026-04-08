@@ -18,7 +18,7 @@ import { KeysTab }     from './tabs/keys-tab.js';
 import { ServicesTab } from './tabs/services-tab.js';
 import { OwnerTab }    from './tabs/owner-tab.js';
 
-import { SUPPORTED_NETWORKS, FALLBACK_CHAIN_ID, KEY_VALIDITY_DEFAULT, shortAddr, formatDID } from './utils.js';
+import { SUPPORTED_NETWORKS, FALLBACK_CHAIN_ID, KEY_VALIDITY_DEFAULT, shortAddr, formatDID, parseIdentityInput, sameAddr } from './utils.js';
 
 // ─────────────────────────────────────────────────────
 // Component
@@ -40,6 +40,9 @@ function DidManager() {
   const [didDocument, setDidDocument] = useState(null);
   const [resolving,   setResolving]   = useState(false);
   const [localKeys,   setLocalKeys]   = useState(loadLocalKeys);
+  const [managedIdentity, setManagedIdentity] = useState('');
+  const [identityInput,   setIdentityInput]   = useState('');
+  const [identityMode,    setIdentityMode]    = useState('account');
   const [svcType,     setSvcType]     = useState('');
   const [svcEndpoint, setSvcEndpoint] = useState('');
   const [svcTtl,      setSvcTtl]      = useState(KEY_VALIDITY_DEFAULT);
@@ -55,14 +58,37 @@ function DidManager() {
     setTimeout(() => setBanner(null), 7000);
   }, []);
 
+  useEffect(() => {
+    if (!account) {
+      setManagedIdentity('');
+      setIdentityInput('');
+      setIdentityMode('account');
+      return;
+    }
+    if (identityMode === 'account' || !managedIdentity) {
+      setManagedIdentity(account);
+      setIdentityInput(account);
+    }
+  }, [account, identityMode, managedIdentity]);
+
+  useEffect(() => {
+    setDidDocument(null);
+  }, [managedIdentity, currentNetwork]);
+
+  const managedDid = managedIdentity && currentNetwork
+    ? formatDID(managedIdentity, currentNetwork.name)
+    : null;
+  const currentOwner = didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? null;
+  const canManage = !!account && !!didDocument && sameAddr(account, currentOwner || '');
+
   // ── Registry actions ──────────────────────────────────────────────────
   const onTxSuccess = useCallback(async (msg, txHash) => {
     showBanner('success', msg, txHash);
     // Auto-resolve after every successful transaction
-    if (account && ethersProvider && currentNetwork) {
+    if (managedIdentity && ethersProvider && currentNetwork) {
       setResolving(true);
       try {
-        const doc = await resolveDID(formatDID(account, currentNetwork.name), ethersProvider);
+        const doc = await resolveDID(formatDID(managedIdentity, currentNetwork.name), ethersProvider);
         setDidDocument(doc);
       } catch (e) {
         showBanner('error', 'Resolve failed: ' + e.message);
@@ -70,13 +96,13 @@ function DidManager() {
         setResolving(false);
       }
     }
-  }, [account, ethersProvider, currentNetwork, showBanner]);
+  }, [managedIdentity, ethersProvider, currentNetwork, showBanner]);
 
-  const registry = useRegistry(account, ethersSigner, currentNetwork, onTxSuccess);
+  const registry = useRegistry(managedIdentity || null, ethersSigner, currentNetwork, onTxSuccess);
 
   // ── Auto-resolve when account/chain become valid ──────────────────────
   useEffect(() => {
-    if (!account || !ethersProvider || !isSupportedNetwork) {
+    if (!managedIdentity || !ethersProvider || !isSupportedNetwork || !currentNetwork) {
       setDidDocument(null);
       return;
     }
@@ -91,12 +117,12 @@ function DidManager() {
         setResolving(false);
         return;
       }
-      resolveDID(formatDID(account, currentNetwork.name), ethersProvider)
+      resolveDID(formatDID(managedIdentity, currentNetwork.name), ethersProvider)
         .then(doc => { if (!cancelled) { setDidDocument(doc); setResolving(false); } })
         .catch(e  => { if (!cancelled) { showBanner('error', 'Resolve failed: ' + e.message); setResolving(false); } });
     }).catch(() => { if (!cancelled) setResolving(false); });
     return () => { cancelled = true; };
-  }, [account, chainId, ethersProvider]);
+  }, [managedIdentity, chainId, ethersProvider, isSupportedNetwork, currentNetwork, showBanner]);
 
   // ── Propagate wallet error to banner ─────────────────────────────────
   useEffect(() => {
@@ -110,10 +136,10 @@ function DidManager() {
 
   // ── Manual resolve ────────────────────────────────────────────────────
   const handleResolve = useCallback(async () => {
-    if (!account || !ethersProvider || !currentNetwork) return;
+    if (!managedIdentity || !ethersProvider || !currentNetwork) return;
     setResolving(true);
     try {
-      const doc = await resolveDID(formatDID(account, currentNetwork.name), ethersProvider);
+      const doc = await resolveDID(formatDID(managedIdentity, currentNetwork.name), ethersProvider);
       setDidDocument(doc);
       showBanner('success', 'DID document resolved.');
     } catch (e) {
@@ -121,7 +147,28 @@ function DidManager() {
     } finally {
       setResolving(false);
     }
-  }, [account, ethersProvider, currentNetwork, showBanner]);
+  }, [managedIdentity, ethersProvider, currentNetwork, showBanner]);
+
+  const handleLoadIdentity = useCallback(() => {
+    try {
+      const identity = parseIdentityInput(identityInput);
+      setManagedIdentity(identity);
+      setIdentityInput(identity);
+      setIdentityMode(sameAddr(identity, account || '') ? 'account' : 'custom');
+      setTab('document');
+      showBanner('success', 'Loaded DID identity.');
+    } catch (e) {
+      showBanner('error', e.message);
+    }
+  }, [identityInput, account, showBanner]);
+
+  const handleUseConnectedWallet = useCallback(() => {
+    if (!account) return;
+    setManagedIdentity(account);
+    setIdentityInput(account);
+    setIdentityMode('account');
+    setTab('document');
+  }, [account]);
 
   // ── Key handlers ──────────────────────────────────────────────────────
   const handleGenerateKey = useCallback(() => {
@@ -164,14 +211,16 @@ function DidManager() {
 
   // ── Service handlers ──────────────────────────────────────────────────
   const handleAddService = useCallback(async () => {
-    await registry.addService(svcType, svcEndpoint, svcTtl);
-    setSvcType(''); setSvcEndpoint('');
+    const ok = await registry.addService(svcType, svcEndpoint, svcTtl);
+    if (ok) {
+      setSvcType(''); setSvcEndpoint('');
+    }
   }, [svcType, svcEndpoint, svcTtl, registry]);
 
   // ── Owner/deactivate handlers ─────────────────────────────────────────
   const handleTransfer = useCallback(async () => {
-    await registry.transferOwnership(newOwner);
-    setNewOwner('');
+    const ok = await registry.transferOwnership(newOwner);
+    if (ok) setNewOwner('');
   }, [newOwner, registry]);
 
   const handleDeactivate = useCallback(async () => {
@@ -248,11 +297,35 @@ function DidManager() {
     </div>
   `;
 
+  const renderIdentityControls = () => html`
+    <div class="card">
+      <div class="card-title">Target DID</div>
+      <div class="form-group">
+        <label class="form-label">Identity Address Or DID</label>
+        <input class="form-input" placeholder="0x... or did:ethr:sepolia:0x..."
+          .value=${identityInput}
+          @input=${e => setIdentityInput(e.target.value)}>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary btn-sm" @click=${handleLoadIdentity} .disabled=${!identityInput.trim()}>Load DID</button>
+        <button class="btn btn-ghost btn-sm" @click=${handleUseConnectedWallet} .disabled=${!account || sameAddr(managedIdentity, account)}>Use connected wallet</button>
+        ${managedIdentity
+          ? html`<span class="badge badge-blue">Managing ${shortAddr(managedIdentity)}</span>`
+          : nothing}
+      </div>
+      ${managedIdentity && didDocument && !canManage ? html`
+        <div class="warn-box" style="margin-top:16px">
+          Connected wallet ${shortAddr(account || '')} is not the current controller for ${shortAddr(managedIdentity)}. You can resolve this DID, but on-chain changes stay disabled until the controller wallet connects.
+        </div>
+      ` : nothing}
+    </div>
+  `;
+
   const copy = (text) => navigator.clipboard.writeText(text).catch(() => {});
 
   const renderDIDBanner = () => {
-    const did      = didDocument?.id ?? formatDID(account ?? '0x0', currentNetwork?.name ?? 'mainnet');
-    const owner    = didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? account;
+    const did      = didDocument?.id ?? (managedDid || formatDID(managedIdentity || account || '0x0', currentNetwork?.name ?? 'mainnet'));
+    const owner    = currentOwner ?? account;
     const registry = currentNetwork?.registry ?? '';
     return html`
       <div class="did-banner">
@@ -316,6 +389,7 @@ function DidManager() {
         : !isSupportedNetwork
           ? html`${renderNetworkWarning()}${renderStatusBar()}`
           : html`
+            ${renderIdentityControls()}
             ${renderDIDBanner()}
             ${renderTabs()}
 
@@ -325,6 +399,7 @@ function DidManager() {
               }) : nothing}
 
             ${tab === 'keys' ? KeysTab({
+                canManage,
                 localKeys, didDocument, txPending: registry.txPending,
                 keyTtls,
                 onTtlChange:   (id, val) => setKeyTtls(prev => ({ ...prev, [id]: val })),
@@ -335,6 +410,7 @@ function DidManager() {
               }) : nothing}
 
             ${tab === 'services' ? ServicesTab({
+                canManage,
                 didDocument, txPending: registry.txPending,
                 svcType, svcEndpoint, svcTtl,
                 onTypeChange:     setSvcType,
@@ -345,7 +421,9 @@ function DidManager() {
               }) : nothing}
 
             ${tab === 'owner' ? OwnerTab({
+                managedIdentity,
                 didDocument, account, txPending: registry.txPending,
+                canManage,
                 newOwner,
                 onNewOwnerChange: setNewOwner,
                 onTransfer:       handleTransfer,

@@ -9,6 +9,7 @@ const SECONDS_PER_YEAR = 365 * 24 * 3600;
 
 /**
  * @param {{
+ *   canManage:     boolean,
  *   localKeys:     object[],
  *   didDocument:   object|null,
  *   txPending:     boolean,
@@ -21,6 +22,7 @@ const SECONDS_PER_YEAR = 365 * 24 * 3600;
  * }} props
  */
 export const KeysTab = ({
+  canManage,
   localKeys, didDocument, txPending,
   keyTtls, onTtlChange,
   onGenerate, onAddKey, onRemoveKey, onDeleteLocal,
@@ -46,6 +48,11 @@ export const KeysTab = ({
       <p style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.7">
         Keys are generated locally (secp256k1) and stored in your browser. Add them to your DID document on-chain.
       </p>
+      ${!canManage ? html`
+        <div class="warn-box">
+          Connected wallet is not the current DID controller. You can inspect keys, but on-chain key changes are disabled.
+        </div>
+      ` : nothing}
 
       ${localKeys.length === 0
         ? html`<div class="empty-state"><div class="empty-icon">🔑</div><div>No local keys yet.<br>Click "Generate Key" to create one.</div></div>`
@@ -84,8 +91,8 @@ export const KeysTab = ({
                 </div>
                 <div class="key-actions">
                   ${onChain
-                    ? html`<button class="btn btn-danger btn-sm" @click=${() => onRemoveKey(kp)} .disabled=${txPending}>Remove</button>`
-                    : html`<button class="btn btn-primary btn-sm" @click=${() => onAddKey(kp)} .disabled=${txPending}>Add to DID</button>`}
+                    ? html`<button class="btn btn-danger btn-sm" @click=${() => onRemoveKey(kp)} .disabled=${txPending || !canManage}>Remove</button>`
+                    : html`<button class="btn btn-primary btn-sm" @click=${() => onAddKey(kp)} .disabled=${txPending || !canManage}>Add to DID</button>`}
                   <button class="btn btn-ghost btn-sm" title="Delete locally" @click=${() => onDeleteLocal(kp)} .disabled=${txPending}>🗑</button>
                 </div>
               </div>

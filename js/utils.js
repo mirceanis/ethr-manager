@@ -1,3 +1,5 @@
+import { ethers } from './imports.js';
+
 // Deployments mirrored from ethr-did-resolver's built-in list.
 // Each entry: { chainId, name, registry, label, explorerTx? }
 const RAW_DEPLOYMENTS = [
@@ -41,6 +43,23 @@ export const STORAGE_KEY  = 'did-ethr-manager-keys-v1';
 export const shortAddr = (addr) =>
   addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
 
+export const sameAddr = (a, b) =>
+  !!a && !!b && a.toLowerCase() === b.toLowerCase();
+
+export function parseIdentityInput(input) {
+  const value = input.trim();
+  if (!value) throw new Error('Enter an address or DID.');
+
+  let identifier = value.split('?')[0];
+  if (identifier.startsWith('did:ethr:')) {
+    const rest = identifier.slice('did:ethr:'.length);
+    const lastColon = rest.lastIndexOf(':');
+    identifier = lastColon === -1 ? rest : rest.slice(lastColon + 1);
+  }
+
+  return ethers.getAddress(identifier);
+}
+
 // did:ethr:mainnet uses no prefix; all others use did:ethr:<name>:<addr>
 export const formatDID = (addr, networkName) => {
   const prefix = networkName === 'mainnet' ? '' : `${networkName}:`;
@@ -49,8 +68,15 @@ export const formatDID = (addr, networkName) => {
 
 // ── JSON syntax highlighter ───────────────────────────────────────────────
 
+function escapeHtml(str) {
+  return str
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
 export function syntaxHighlight(obj) {
-  const json = JSON.stringify(obj, null, 2);
+  const json = escapeHtml(JSON.stringify(obj, null, 2));
   return json.replace(
     /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
     (match) => {
