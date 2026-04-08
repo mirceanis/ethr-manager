@@ -18,7 +18,7 @@ import { KeysTab }     from './tabs/keys-tab.js';
 import { ServicesTab } from './tabs/services-tab.js';
 import { OwnerTab }    from './tabs/owner-tab.js';
 
-import { SUPPORTED_NETWORKS, FALLBACK_CHAIN_ID, KEY_VALIDITY_DEFAULT, shortAddr, formatDID, parseIdentityInput, sameAddr } from './utils.js';
+import { SUPPORTED_NETWORKS, FALLBACK_CHAIN_ID, KEY_VALIDITY_DEFAULT, shortAddr, formatDID, parseIdentityInput, sameAddr, getSupportedNetworkByName } from './utils.js';
 
 // ─────────────────────────────────────────────────────
 // Component
@@ -40,8 +40,10 @@ function DidManager() {
   const [didDocument, setDidDocument] = useState(null);
   const [resolving,   setResolving]   = useState(false);
   const [localKeys,   setLocalKeys]   = useState(loadLocalKeys);
+  const [managedDid, setManagedDid] = useState('');
   const [managedIdentifier, setManagedIdentifier] = useState('');
   const [managedIdentityAddress, setManagedIdentityAddress] = useState('');
+  const [managedNetworkName, setManagedNetworkName] = useState('');
   const [identityInput,      setIdentityInput]      = useState('');
   const [identityMode,    setIdentityMode]    = useState('account');
   const [svcType,     setSvcType]     = useState('');
@@ -59,28 +61,85 @@ function DidManager() {
     setTimeout(() => setBanner(null), 7000);
   }, []);
 
+  const applyManagedDid = useCallback((nextDid, nextMode = 'custom') => {
+    const parsed = parseIdentityInput(nextDid, currentNetwork?.name || managedNetworkName || 'mainnet');
+    setManagedDid(parsed.did);
+    setManagedIdentifier(parsed.identifier);
+    setManagedIdentityAddress(parsed.identityAddress);
+    setManagedNetworkName(parsed.networkName);
+    setIdentityInput(parsed.did);
+    setIdentityMode(nextMode);
+    return parsed;
+  }, [currentNetwork?.name, managedNetworkName]);
+
+  useEffect(() => {
+    const hashDid = decodeURIComponent(window.location.hash.replace(/^#/, '').trim());
+    if (!hashDid) return;
+    try {
+      applyManagedDid(hashDid, 'custom');
+    } catch {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [applyManagedDid]);
+
   useEffect(() => {
     if (!account) {
+      setManagedDid('');
       setManagedIdentifier('');
       setManagedIdentityAddress('');
+      setManagedNetworkName('');
       setIdentityInput('');
       setIdentityMode('account');
       return;
     }
-    if (identityMode === 'account' || !managedIdentifier) {
-      setManagedIdentifier(account);
-      setManagedIdentityAddress(account);
-      setIdentityInput(account);
+    if (identityMode === 'account' || !managedDid) {
+      applyManagedDid(formatDID(account, currentNetwork?.name || 'mainnet'), 'account');
     }
-  }, [account, identityMode, managedIdentifier]);
+  }, [account, identityMode, managedDid, currentNetwork?.name, applyManagedDid]);
+
+  useEffect(() => {
+    if (!managedDid) return;
+    const nextHash = `#${encodeURIComponent(managedDid)}`;
+    if (window.location.hash !== nextHash) history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
+  }, [managedDid]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const hashDid = decodeURIComponent(window.location.hash.replace(/^#/, '').trim());
+      if (!hashDid) {
+        if (account) {
+          applyManagedDid(formatDID(account, currentNetwork?.name || 'mainnet'), 'account');
+          setTab('document');
+        }
+        return;
+      }
+      if (hashDid === managedDid) return;
+      try {
+        applyManagedDid(hashDid, sameAddr(parseIdentityInput(hashDid).identityAddress, account || '') ? 'account' : 'custom');
+        setTab('document');
+      } catch {
+        showBanner('error', 'Invalid did:ethr URL fragment.');
+        if (managedDid) {
+          history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${encodeURIComponent(managedDid)}`);
+        } else {
+          history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+        }
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [managedDid, account, applyManagedDid, showBanner]);
 
   useEffect(() => {
     setDidDocument(null);
-  }, [managedIdentifier, currentNetwork]);
+  }, [managedDid, currentNetwork]);
 
-  const managedDid = managedIdentifier && currentNetwork
+  const resolvedManagedDid = managedDid || (managedIdentifier && currentNetwork
     ? formatDID(managedIdentifier, currentNetwork.name)
-    : null;
+    : null);
+  const managedNetwork = managedNetworkName ? getSupportedNetworkByName(managedNetworkName) : currentNetwork;
+  const walletMatchesManagedNetwork = !!managedNetwork && !!currentNetwork && managedNetwork.chainId === currentNetwork.chainId;
+  const canUseManagedNetwork = !!managedNetwork && !!currentNetwork && walletMatchesManagedNetwork;
   const managedIdentityType = managedIdentifier && managedIdentifier.length > 42 ? 'public key' : 'address';
   const currentOwner = didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? null;
   const canManage = !!account && !!didDocument && sameAddr(account, currentOwner || '');
@@ -89,10 +148,10 @@ function DidManager() {
   const onTxSuccess = useCallback(async (msg, txHash) => {
     showBanner('success', msg, txHash);
     // Auto-resolve after every successful transaction
-    if (managedIdentifier && ethersProvider && currentNetwork) {
+    if (managedIdentifier && ethersProvider && canUseManagedNetwork && resolvedManagedDid) {
       setResolving(true);
       try {
-        const doc = await resolveDID(formatDID(managedIdentifier, currentNetwork.name), ethersProvider);
+        const doc = await resolveDID(resolvedManagedDid, ethersProvider);
         setDidDocument(doc);
       } catch (e) {
         showBanner('error', 'Resolve failed: ' + e.message);
@@ -100,13 +159,13 @@ function DidManager() {
         setResolving(false);
       }
     }
-  }, [managedIdentifier, ethersProvider, currentNetwork, showBanner]);
+  }, [managedIdentifier, ethersProvider, canUseManagedNetwork, resolvedManagedDid, showBanner]);
 
-  const registry = useRegistry(managedIdentityAddress || null, ethersSigner, currentNetwork, onTxSuccess);
+  const registry = useRegistry(managedIdentityAddress || null, ethersSigner, canUseManagedNetwork ? managedNetwork : null, onTxSuccess);
 
   // ── Auto-resolve when account/chain become valid ──────────────────────
   useEffect(() => {
-    if (!managedIdentifier || !ethersProvider || !isSupportedNetwork || !currentNetwork) {
+    if (!managedIdentifier || !ethersProvider || !managedNetwork || !canUseManagedNetwork || !resolvedManagedDid) {
       setDidDocument(null);
       return;
     }
@@ -121,12 +180,12 @@ function DidManager() {
         setResolving(false);
         return;
       }
-      resolveDID(formatDID(managedIdentifier, currentNetwork.name), ethersProvider)
+      resolveDID(resolvedManagedDid, ethersProvider)
         .then(doc => { if (!cancelled) { setDidDocument(doc); setResolving(false); } })
         .catch(e  => { if (!cancelled) { showBanner('error', 'Resolve failed: ' + e.message); setResolving(false); } });
     }).catch(() => { if (!cancelled) setResolving(false); });
     return () => { cancelled = true; };
-  }, [managedIdentifier, chainId, ethersProvider, isSupportedNetwork, currentNetwork, showBanner]);
+  }, [managedIdentifier, managedNetwork, canUseManagedNetwork, chainId, ethersProvider, resolvedManagedDid, showBanner]);
 
   // ── Propagate wallet error to banner ─────────────────────────────────
   useEffect(() => {
@@ -140,10 +199,15 @@ function DidManager() {
 
   // ── Manual resolve ────────────────────────────────────────────────────
   const handleResolve = useCallback(async () => {
-    if (!managedIdentifier || !ethersProvider || !currentNetwork) return;
+    if (!managedIdentifier || !ethersProvider || !resolvedManagedDid || !canUseManagedNetwork) {
+      if (managedNetwork) {
+        showBanner('error', `Switch wallet to ${managedNetwork.label} to resolve this DID.`);
+      }
+      return;
+    }
     setResolving(true);
     try {
-      const doc = await resolveDID(formatDID(managedIdentifier, currentNetwork.name), ethersProvider);
+      const doc = await resolveDID(resolvedManagedDid, ethersProvider);
       setDidDocument(doc);
       showBanner('success', 'DID document resolved.');
     } catch (e) {
@@ -151,30 +215,24 @@ function DidManager() {
     } finally {
       setResolving(false);
     }
-  }, [managedIdentifier, ethersProvider, currentNetwork, showBanner]);
+  }, [managedIdentifier, ethersProvider, resolvedManagedDid, canUseManagedNetwork, managedNetwork, showBanner]);
 
   const handleLoadIdentity = useCallback(() => {
     try {
-      const nextIdentity = parseIdentityInput(identityInput);
-      setManagedIdentifier(nextIdentity.identifier);
-      setManagedIdentityAddress(nextIdentity.identityAddress);
-      setIdentityInput(nextIdentity.identifier);
+      const nextIdentity = applyManagedDid(identityInput, 'custom');
       setIdentityMode(nextIdentity.type === 'address' && sameAddr(nextIdentity.identityAddress, account || '') ? 'account' : 'custom');
       setTab('document');
       showBanner('success', 'Loaded DID identity.');
     } catch (e) {
       showBanner('error', e.message);
     }
-  }, [identityInput, account, showBanner]);
+  }, [identityInput, account, showBanner, applyManagedDid]);
 
   const handleUseConnectedWallet = useCallback(() => {
     if (!account) return;
-    setManagedIdentifier(account);
-    setManagedIdentityAddress(account);
-    setIdentityInput(account);
-    setIdentityMode('account');
+    applyManagedDid(formatDID(account, currentNetwork?.name || 'mainnet'), 'account');
     setTab('document');
-  }, [account]);
+  }, [account, currentNetwork?.name, applyManagedDid]);
 
   // ── Key handlers ──────────────────────────────────────────────────────
   const handleGenerateKey = useCallback(() => {
@@ -312,11 +370,16 @@ function DidManager() {
       </div>
       <div class="inline-row-wrap">
         <button class="btn btn-primary btn-sm" @click=${handleLoadIdentity} .disabled=${!identityInput.trim()}>Load DID</button>
-        <button class="btn btn-ghost btn-sm" @click=${handleUseConnectedWallet} .disabled=${!account || (managedIdentifier === account && managedIdentityAddress === account)}>Use connected wallet</button>
+        <button class="btn btn-ghost btn-sm" @click=${handleUseConnectedWallet} .disabled=${!account || (managedIdentifier === account && managedIdentityAddress === account && managedNetworkName === (currentNetwork?.name || 'mainnet'))}>Use connected wallet</button>
         ${managedIdentifier
           ? html`<span class="badge badge-blue">Managing ${managedIdentityType}</span>`
           : nothing}
       </div>
+      ${managedNetwork && currentNetwork && !walletMatchesManagedNetwork ? html`
+        <div class="warn-box warn-box-top">
+          This DID is anchored on ${managedNetwork.label}, but your wallet is connected to ${currentNetwork.label}. Switch networks to resolve or update it.
+        </div>
+      ` : nothing}
       ${managedIdentifier && didDocument && !canManage ? html`
         <div class="warn-box warn-box-top">
           Connected wallet ${shortAddr(account || '')} is not the current controller for ${shortAddr(managedIdentityAddress || managedIdentifier)}. You can resolve this DID, but on-chain changes stay disabled until the controller wallet connects.
@@ -328,9 +391,9 @@ function DidManager() {
   const copy = (text) => navigator.clipboard.writeText(text).catch(() => {});
 
   const renderDIDBanner = () => {
-    const did      = didDocument?.id ?? (managedDid || formatDID(managedIdentifier || account || '0x0', currentNetwork?.name ?? 'mainnet'));
+    const did      = didDocument?.id ?? (resolvedManagedDid || formatDID(managedIdentifier || account || '0x0', currentNetwork?.name ?? 'mainnet'));
     const owner    = currentOwner ?? account;
-    const registry = currentNetwork?.registry ?? '';
+    const registry = managedNetwork?.registry ?? currentNetwork?.registry ?? '';
     return html`
       <div class="did-banner">
         <div class="did-banner-label">✓ DID Identity (CREATE)</div>
@@ -352,10 +415,10 @@ function DidManager() {
               <button class="btn btn-ghost btn-sm btn-copy" title="Copy owner address" @click=${() => copy(owner ?? '')}>⎘</button>
             </span>
           </div>
-          <div class="did-meta-item">Network<span>${currentNetwork?.label ?? ''}</span></div>
+          <div class="did-meta-item">Network<span>${managedNetwork?.label ?? currentNetwork?.label ?? ''}</span></div>
           <div class="did-meta-item">Registry
             <span class="meta-copy-group">
-              ${shortAddr(registry)}
+              ${shortAddr(managedNetwork?.registry ?? registry)}
               <button class="btn btn-ghost btn-sm btn-copy" title="Copy registry address" @click=${() => copy(registry)}>⎘</button>
             </span>
           </div>

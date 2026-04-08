@@ -20,6 +20,10 @@ export const SUPPORTED_NETWORKS = Object.fromEntries(
   RAW_DEPLOYMENTS.map(d => [d.chainId, d]),
 );
 
+export const SUPPORTED_NETWORKS_BY_NAME = Object.fromEntries(
+  RAW_DEPLOYMENTS.map(d => [d.name, d]),
+);
+
 // Fallback network to suggest when the connected chain is unsupported.
 export const FALLBACK_CHAIN_ID  = 11155111; // Sepolia
 export const FALLBACK_NETWORK   = SUPPORTED_NETWORKS[FALLBACK_CHAIN_ID];
@@ -49,22 +53,51 @@ export const shortAddr = (addr) =>
 export const sameAddr = (a, b) =>
   !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
-export function parseIdentityInput(input) {
+function parseNetworkName(networkToken, fallbackNetworkName = null) {
+  if (!networkToken) {
+    if (fallbackNetworkName) return fallbackNetworkName;
+    return 'mainnet';
+  }
+
+  const byName = SUPPORTED_NETWORKS_BY_NAME[networkToken];
+  if (byName) return byName.name;
+
+  if (/^0x[0-9a-fA-F]+$/.test(networkToken)) {
+    const chainId = Number(BigInt(networkToken));
+    const byChainId = SUPPORTED_NETWORKS[chainId];
+    if (byChainId) return byChainId.name;
+  }
+
+  throw new Error(`Unsupported did:ethr network: ${networkToken}`);
+}
+
+export const getSupportedNetworkByName = (networkName) =>
+  networkName ? (SUPPORTED_NETWORKS_BY_NAME[networkName] ?? null) : null;
+
+export function parseIdentityInput(input, fallbackNetworkName = null) {
   const value = input.trim();
   if (!value) throw new Error('Enter an address, compressed public key, or DID.');
 
   let identifier = value.split('?')[0];
+  let networkName;
   if (identifier.startsWith('did:ethr:')) {
-    const rest = identifier.slice('did:ethr:'.length);
-    const lastColon = rest.lastIndexOf(':');
-    identifier = lastColon === -1 ? rest : rest.slice(lastColon + 1);
+    const components = identifier.split(':');
+    identifier = components[components.length - 1];
+    networkName = parseNetworkName(
+      components.length >= 4 ? components.slice(2, -1).join(':') : null,
+      null,
+    );
+  } else {
+    networkName = parseNetworkName(null, fallbackNetworkName);
   }
 
   if (ADDRESS_IDENTIFIER.test(identifier)) {
     const address = ethers.getAddress(identifier);
     return {
       identifier: address,
+      did: formatDID(address, networkName),
       identityAddress: address,
+      networkName,
       type: 'address',
     };
   }
@@ -74,7 +107,9 @@ export function parseIdentityInput(input) {
     try {
       return {
         identifier: publicKey,
+        did: formatDID(publicKey, networkName),
         identityAddress: ethers.computeAddress(publicKey),
+        networkName,
         type: 'publicKey',
       };
     } catch {
