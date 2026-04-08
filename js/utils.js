@@ -40,6 +40,9 @@ export const STORAGE_KEY  = 'did-ethr-manager-keys-v1';
 
 // ── Address / DID helpers ─────────────────────────────────────────────────
 
+const ADDRESS_IDENTIFIER = /^0x[0-9a-fA-F]{40}$/;
+const PUBLIC_KEY_IDENTIFIER = /^0x[0-9a-fA-F]{66}$/;
+
 export const shortAddr = (addr) =>
   addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
 
@@ -48,7 +51,7 @@ export const sameAddr = (a, b) =>
 
 export function parseIdentityInput(input) {
   const value = input.trim();
-  if (!value) throw new Error('Enter an address or DID.');
+  if (!value) throw new Error('Enter an address, compressed public key, or DID.');
 
   let identifier = value.split('?')[0];
   if (identifier.startsWith('did:ethr:')) {
@@ -57,13 +60,35 @@ export function parseIdentityInput(input) {
     identifier = lastColon === -1 ? rest : rest.slice(lastColon + 1);
   }
 
-  return ethers.getAddress(identifier);
+  if (ADDRESS_IDENTIFIER.test(identifier)) {
+    const address = ethers.getAddress(identifier);
+    return {
+      identifier: address,
+      identityAddress: address,
+      type: 'address',
+    };
+  }
+
+  if (PUBLIC_KEY_IDENTIFIER.test(identifier)) {
+    const publicKey = identifier.toLowerCase();
+    try {
+      return {
+        identifier: publicKey,
+        identityAddress: ethers.computeAddress(publicKey),
+        type: 'publicKey',
+      };
+    } catch {
+      throw new Error('Enter a valid compressed secp256k1 public key, address, or DID.');
+    }
+  }
+
+  throw new Error('Enter a valid address, compressed secp256k1 public key, or DID.');
 }
 
-// did:ethr:mainnet uses no prefix; all others use did:ethr:<name>:<addr>
-export const formatDID = (addr, networkName) => {
+// did:ethr:mainnet uses no prefix; all others use did:ethr:<name>:<identifier>
+export const formatDID = (identifier, networkName) => {
   const prefix = networkName === 'mainnet' ? '' : `${networkName}:`;
-  return `did:ethr:${prefix}${addr.toLowerCase()}`;
+  return `did:ethr:${prefix}${identifier.toLowerCase()}`;
 };
 
 // ── JSON syntax highlighter ───────────────────────────────────────────────

@@ -23,6 +23,7 @@ export const OwnerTab = ({
   canManage,
   newOwner, onNewOwnerChange, onTransfer, onDeactivate,
 }) => {
+  const identityLabel = managedIdentity.length > 42 ? 'Managed Public Key' : 'Managed Identity';
   const currentOwner =
     didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? account ?? '';
 
@@ -30,7 +31,7 @@ export const OwnerTab = ({
     <div class="card">
       <div class="card-title">UPDATE · DID Ownership</div>
       <div class="owner-section">
-        <div class="form-label">Managed Identity</div>
+        <div class="form-label">${identityLabel}</div>
         <div class="owner-addr">${managedIdentity}</div>
       </div>
       <div class="owner-section">

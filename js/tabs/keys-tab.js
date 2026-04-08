@@ -28,14 +28,21 @@ export const KeysTab = ({
   onGenerate, onAddKey, onRemoveKey, onDeleteLocal,
 }) => {
   const docVMs = didDocument?.verificationMethod ?? [];
+  const managedPublicKey = didDocument?.id?.split(':').pop()?.toLowerCase();
 
   // Derive on-chain presence from the live DID document, not from stored flag.
   const isOnChain = (kp) =>
-    docVMs.some(vm => vm.publicKeyHex?.toLowerCase() === kp.publicKey.slice(2).toLowerCase());
+    docVMs.some(vm => {
+      if (!vm.publicKeyHex) return false;
+      const fullPublicKey = `0x${vm.publicKeyHex.toLowerCase()}`;
+      if (fullPublicKey === managedPublicKey && vm.id?.endsWith('#controllerKey')) return false;
+      return fullPublicKey === kp.publicKey.toLowerCase();
+    });
 
   // Keys in the DID doc that don't belong to any local key
   const externalVMs = docVMs.filter(
     vm => !vm.blockchainAccountId &&
+      !(vm.id?.endsWith('#controllerKey') && `0x${vm.publicKeyHex?.toLowerCase()}` === managedPublicKey) &&
       !localKeys.some(k => k.publicKey.slice(2).toLowerCase() === vm.publicKeyHex?.toLowerCase()),
   );
 
