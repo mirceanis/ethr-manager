@@ -236,10 +236,7 @@ function DidManager() {
     <header class="header">
       <div class="logo">
         <div class="logo-mark">
-          <svg viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L15.5 6v6L9 16 2.5 12V6L9 2Z" stroke="#04c47a" stroke-width="1.5" stroke-linejoin="round"/>
-            <circle cx="9" cy="9" r="2.5" fill="#04c47a"/>
-          </svg>
+          <img src="./assets/logo.svg" alt="did:ethr logo">
         </div>
         <div>
           <div class="logo-title">did:ethr Manager</div>

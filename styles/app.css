@@ -115,6 +115,7 @@ body::before {
   border: 1px solid var(--accent-edge);
   box-shadow: 0 0 16px var(--accent-soft);
 }
+.logo-mark img,
 .logo-mark svg { width: 18px; height: 18px; }
 .logo-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--white); }
 .logo-sub { letter-spacing: 0.5px; }
