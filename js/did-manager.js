@@ -302,8 +302,13 @@ function DidManager() {
         <div class="logo-mark">
           <img src="./assets/logo.svg" alt="did:ethr logo">
         </div>
-        <div>
-          <div class="logo-title">did:ethr Manager</div>
+        <div class="logo-copy">
+          <div class="logo-title-row">
+            <div class="logo-title">did:ethr Manager</div>
+            <a class="github-link" href="https://github.com/mirceanis/ethr-manager" target="_blank" rel="noreferrer" aria-label="GitHub repository" title="GitHub repository">
+              <img src="./assets/GitHub_Invertocat_White.svg" alt="GitHub">
+            </a>
+          </div>
         </div>
       </div>
       ${account ? html`

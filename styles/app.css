@@ -109,6 +109,8 @@ body::before {
   margin-bottom: 36px;
 }
 .logo { gap: 12px; }
+.logo-copy { display: flex; flex-direction: column; gap: 4px; }
+.logo-title-row { display: flex; align-items: center; gap: 10px; }
 .logo-mark {
   width: 36px; height: 36px; border-radius: 10px;
   background: linear-gradient(135deg, var(--accent-soft), var(--accent-strong));
@@ -119,6 +121,28 @@ body::before {
 .logo-mark svg { width: 18px; height: 18px; }
 .logo-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--white); }
 .logo-sub { letter-spacing: 0.5px; }
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  text-decoration: none;
+  transition: var(--trans);
+}
+.github-link img,
+.github-link svg {
+  width: 15px;
+  height: 15px;
+}
+.github-link:hover {
+  border-color: var(--accent);
+  color: var(--white);
+  box-shadow: var(--accent-glow);
+}
 
 .wallet-pill {
   gap: 8px;
