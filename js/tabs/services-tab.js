@@ -3,7 +3,7 @@
  */
 
 import { html, nothing } from '../imports.js';
-import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
+import { formatTtl } from '../utils.js';
 
 /**
  * @param {{

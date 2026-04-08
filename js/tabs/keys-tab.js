@@ -5,8 +5,6 @@
 import { html, nothing } from '../imports.js';
 import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
 
-const SECONDS_PER_YEAR = 365 * 24 * 3600;
-
 /**
  * @param {{
  *   canManage:     boolean,

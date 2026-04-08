@@ -2,7 +2,7 @@
  * document-tab.js – READ tab: show the DID document as syntax-highlighted JSON.
  */
 
-import { html, nothing } from '../imports.js';
+import { html } from '../imports.js';
 import { syntaxHighlight } from '../utils.js';
 
 /**
