@@ -30,7 +30,7 @@ export const ServicesTab = ({
   <div class="card">
     <div class="card-title">UPDATE · Service Endpoints</div>
     ${!canManage ? html`
-      <div class="warn-box" style="margin-bottom:16px">
+      <div class="warn-box">
         Connected wallet is not the current DID controller. Service updates are disabled for this DID.
       </div>
     ` : nothing}
@@ -50,9 +50,10 @@ export const ServicesTab = ({
           .disabled=${txPending || !canManage}>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <label style="font-size:11px;color:var(--muted);font-family:var(--mono)">TTL (s)</label>
+    <div class="ttl-row">
+      <label class="ttl-label">TTL (s)</label>
       <input
+        class="ttl-input"
         type="number" min="1" step="1"
         .value=${String(svcTtl)}
         @change=${e => {
@@ -60,10 +61,9 @@ export const ServicesTab = ({
           e.target.value = String(secs);
           onTtlChange(secs);
         }}
-        style="width:140px;padding:3px 6px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)"
         .disabled=${txPending || !canManage}
       >
-      <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">${formatTtl(svcTtl)}</span>
+      <span class="ttl-value">${formatTtl(svcTtl)}</span>
     </div>
     <button class="btn btn-primary"
       @click=${onAddService}
@@ -81,7 +81,7 @@ export const ServicesTab = ({
           <div class="key-body">
             <div class="key-label">${svc.type}</div>
             <div class="key-val">${svc.serviceEndpoint}</div>
-            <div class="key-val" style="font-size:10px;margin-top:2px">${svc.id}</div>
+            <div class="key-val key-copy">${svc.id}</div>
           </div>
           <button class="btn btn-danger btn-sm" @click=${() => onRemoveService(svc)} .disabled=${txPending || !canManage}>Remove</button>
         </div>

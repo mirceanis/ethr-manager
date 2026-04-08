@@ -250,7 +250,7 @@ function DidManager() {
         <div class="wallet-pill ${isSupportedNetwork ? 'connected' : 'wrong'}">
           <span class="dot"></span>
           <span>${shortAddr(account)}</span>
-          ${!isSupportedNetwork ? html`<span style="color:var(--yellow)">Unsupported network</span>` : nothing}
+          ${!isSupportedNetwork ? html`<span class="text-yellow">Unsupported network</span>` : nothing}
         </div>
       ` : html`<div class="wallet-pill"><span class="dot"></span><span>Not connected</span></div>`}
     </header>
@@ -291,9 +291,9 @@ function DidManager() {
       </div>
       <button class="btn btn-ghost" @click=${() => switchToNetwork(FALLBACK_CHAIN_ID)}>Switch to Sepolia</button>
     </div>
-    <div class="card" style="opacity:.5;pointer-events:none">
+    <div class="card card-muted">
       <div class="card-title">Management disabled on this network</div>
-      <p style="color:var(--muted);font-family:var(--mono);font-size:13px">Connect to a supported network to manage your DID.</p>
+      <p class="network-warn-copy">Connect to a supported network to manage your DID.</p>
     </div>
   `;
 
@@ -306,7 +306,7 @@ function DidManager() {
           .value=${identityInput}
           @input=${e => setIdentityInput(e.target.value)}>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="inline-row-wrap">
         <button class="btn btn-primary btn-sm" @click=${handleLoadIdentity} .disabled=${!identityInput.trim()}>Load DID</button>
         <button class="btn btn-ghost btn-sm" @click=${handleUseConnectedWallet} .disabled=${!account || sameAddr(managedIdentity, account)}>Use connected wallet</button>
         ${managedIdentity
@@ -314,7 +314,7 @@ function DidManager() {
           : nothing}
       </div>
       ${managedIdentity && didDocument && !canManage ? html`
-        <div class="warn-box" style="margin-top:16px">
+        <div class="warn-box warn-box-top">
           Connected wallet ${shortAddr(account || '')} is not the current controller for ${shortAddr(managedIdentity)}. You can resolve this DID, but on-chain changes stay disabled until the controller wallet connects.
         </div>
       ` : nothing}
@@ -330,22 +330,22 @@ function DidManager() {
     return html`
       <div class="did-banner">
         <div class="did-banner-label">✓ DID Identity (CREATE)</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-          <div class="did-banner-id" style="margin-bottom:0">${did}</div>
-          <button class="btn btn-ghost btn-sm" title="Copy DID" @click=${() => copy(did)} style="flex-shrink:0;font-size:16px;padding:0 4px;min-width:0;line-height:1">⎘</button>
+        <div class="did-banner-head">
+          <div class="did-banner-id did-banner-id-tight">${did}</div>
+          <button class="btn btn-ghost btn-sm btn-copy" title="Copy DID" @click=${() => copy(did)}>⎘</button>
         </div>
         <div class="did-banner-meta">
           <div class="did-meta-item">Owner
-            <span style="display:inline-flex;align-items:center;gap:4px">
+            <span class="meta-copy-group">
               ${shortAddr(owner ?? '')}
-              <button class="btn btn-ghost btn-sm" title="Copy owner address" @click=${() => copy(owner ?? '')} style="padding:0 4px;min-width:0;line-height:1;font-size:16px">⎘</button>
+              <button class="btn btn-ghost btn-sm btn-copy" title="Copy owner address" @click=${() => copy(owner ?? '')}>⎘</button>
             </span>
           </div>
           <div class="did-meta-item">Network<span>${currentNetwork?.label ?? ''}</span></div>
           <div class="did-meta-item">Registry
-            <span style="display:inline-flex;align-items:center;gap:4px">
+            <span class="meta-copy-group">
               ${shortAddr(registry)}
-              <button class="btn btn-ghost btn-sm" title="Copy registry address" @click=${() => copy(registry)} style="padding:0 4px;min-width:0;line-height:1;font-size:16px">⎘</button>
+              <button class="btn btn-ghost btn-sm btn-copy" title="Copy registry address" @click=${() => copy(registry)}>⎘</button>
             </span>
           </div>
           ${didDocument ? html`<div class="did-meta-item">Keys<span>${didDocument.verificationMethod?.length ?? 0}</span></div>` : nothing}
@@ -369,7 +369,7 @@ function DidManager() {
       : nothing}
     ${banner?.type === 'success'
       ? html`<div class="status-bar success"><span>✓</span><span>${banner.msg}${banner.txHash && currentNetwork?.explorerTx
-          ? html` — <a href="${currentNetwork.explorerTx}${banner.txHash}" target="_blank" style="color:inherit">${shortAddr(banner.txHash)}</a>`
+          ? html` — <a href="${currentNetwork.explorerTx}${banner.txHash}" target="_blank" class="link-inherit">${shortAddr(banner.txHash)}</a>`
           : nothing}</span></div>`
       : nothing}
     ${registry.txPending && !banner

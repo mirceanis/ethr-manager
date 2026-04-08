@@ -16,7 +16,7 @@ import { syntaxHighlight } from '../utils.js';
 export const DocumentTab = ({ didDocument, resolving, txPending, onResolve }) => html`
   <div class="card">
     <div class="action-row">
-      <div class="card-title" style="margin-bottom:0">READ · DID Document</div>
+      <div class="card-title card-title-tight">READ · DID Document</div>
       <button class="btn btn-ghost btn-sm" @click=${onResolve} .disabled=${resolving || txPending}>
         ${resolving
           ? html`<span class="spinner"></span> Resolving…`
@@ -24,9 +24,9 @@ export const DocumentTab = ({ didDocument, resolving, txPending, onResolve }) =>
       </button>
     </div>
     ${resolving
-      ? html`<div style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:13px"><span class="spinner"></span>&nbsp; Resolving DID document…</div>`
+      ? html`<div class="resolve-loading"><span class="spinner"></span>&nbsp; Resolving DID document…</div>`
       : didDocument
-        ? html`<div style="margin-top:20px"><div class="json-wrap" .innerHTML=${syntaxHighlight(didDocument)}></div></div>`
+        ? html`<div class="json-frame-top"><div class="json-wrap" .innerHTML=${syntaxHighlight(didDocument)}></div></div>`
         : html`<div class="empty-state"><div class="empty-icon">📄</div><div>Click Resolve to fetch the DID document.<br>It auto-resolves after each transaction.</div></div>`
     }
   </div>

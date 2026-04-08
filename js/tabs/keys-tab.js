@@ -42,10 +42,10 @@ export const KeysTab = ({
   return html`
     <div class="card">
       <div class="action-row">
-        <div class="card-title" style="margin-bottom:0">UPDATE · Verification Keys</div>
+        <div class="card-title card-title-tight">UPDATE · Verification Keys</div>
         <button class="btn btn-primary btn-sm" @click=${onGenerate} .disabled=${txPending}>+ Generate Key</button>
       </div>
-      <p style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.7">
+      <p class="network-warn-copy">
         Keys are generated locally (secp256k1) and stored in your browser. Add them to your DID document on-chain.
       </p>
       ${!canManage ? html`
@@ -66,15 +66,16 @@ export const KeysTab = ({
                   <div class="key-label">
                     Secp256k1
                     ${onChain
-                      ? html`<span class="badge badge-green" style="margin-left:8px">On-chain</span>`
-                      : html`<span class="badge badge-muted" style="margin-left:8px">Local only</span>`}
+                      ? html`<span class="badge badge-green badge-offset">On-chain</span>`
+                      : html`<span class="badge badge-muted badge-offset">Local only</span>`}
                   </div>
                   <div class="key-val" title="${kp.publicKey}">${kp.publicKey}</div>
-                  <div class="key-val" style="margin-top:3px;font-size:10px">${new Date(kp.created).toLocaleString()}</div>
+                  <div class="key-val key-created-at">${new Date(kp.created).toLocaleString()}</div>
                   ${!onChain ? html`
-                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-                      <label style="font-size:11px;color:var(--muted);font-family:var(--mono)">TTL (s)</label>
+                    <div class="ttl-row key-ttl-row">
+                      <label class="ttl-label">TTL (s)</label>
                       <input
+                        class="ttl-input"
                         type="number" min="1" step="1"
                         .value=${String(ttlSecs)}
                         @change=${(e) => {
@@ -82,10 +83,9 @@ export const KeysTab = ({
                           e.target.value = String(secs);
                           onTtlChange(kp.id, secs);
                         }}
-                        style="width:140px;padding:3px 6px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text)"
                         .disabled=${txPending}
                       >
-                      <span style="font-size:11px;color:var(--muted);font-family:var(--mono)">${formatTtl(ttlSecs)}</span>
+                      <span class="ttl-value">${formatTtl(ttlSecs)}</span>
                     </div>
                   ` : nothing}
                 </div>
@@ -107,7 +107,7 @@ export const KeysTab = ({
           <div class="key-item">
             <div class="key-icon">🔏</div>
             <div class="key-body">
-              <div class="key-label">${vm.type} <span class="badge badge-blue" style="margin-left:8px">External</span></div>
+              <div class="key-label">${vm.type} <span class="badge badge-blue badge-offset">External</span></div>
               <div class="key-val" title="${vm.publicKeyHex}">${vm.publicKeyHex ? '0x' + vm.publicKeyHex : vm.blockchainAccountId}</div>
             </div>
             <button class="btn btn-danger btn-sm" .disabled=${true} title="Import the private key locally to remove this key">Remove</button>

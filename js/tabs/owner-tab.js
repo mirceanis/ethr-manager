@@ -29,11 +29,11 @@ export const OwnerTab = ({
   return html`
     <div class="card">
       <div class="card-title">UPDATE · DID Ownership</div>
-      <div style="margin-bottom:20px">
+      <div class="owner-section">
         <div class="form-label">Managed Identity</div>
         <div class="owner-addr">${managedIdentity}</div>
       </div>
-      <div style="margin-bottom:20px">
+      <div class="owner-section">
         <div class="form-label">Current Owner</div>
         <div class="owner-addr">${currentOwner}</div>
       </div>
@@ -55,8 +55,8 @@ export const OwnerTab = ({
       </button>
     </div>
 
-    <div class="card" style="border-color:#3d1515">
-      <div class="card-title" style="color:var(--red)">DELETE · Deactivate DID</div>
+    <div class="card card-danger">
+      <div class="card-title card-title-danger">DELETE · Deactivate DID</div>
       <div class="warn-box">
         ⚠ Deactivating transfers ownership to the burn address (0x…dEaD),
         making the DID permanently unresolvable and unmanageable.
