@@ -56,7 +56,7 @@ export const OwnerTab = ({
     </div>
 
     <div class="card card-danger">
-      <div class="card-title card-title-danger">DELETE · Deactivate DID</div>
+      <div class="card-title">DELETE · Deactivate DID</div>
       <div class="warn-box">
         ⚠ Deactivating transfers ownership to the burn address (0x…dEaD),
         making the DID permanently unresolvable and unmanageable.

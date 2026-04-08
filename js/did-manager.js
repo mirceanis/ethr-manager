@@ -242,15 +242,16 @@ function DidManager() {
           </svg>
         </div>
         <div>
-          <div class="logo-title">DID:Ethr Manager</div>
-          <div class="logo-sub">${currentNetwork ? currentNetwork.label : 'EIP-1193'} · EIP-6963</div>
+          <div class="logo-title">did:ethr Manager</div>
         </div>
       </div>
       ${account ? html`
         <div class="wallet-pill ${isSupportedNetwork ? 'connected' : 'wrong'}">
           <span class="dot"></span>
           <span>${shortAddr(account)}</span>
-          ${!isSupportedNetwork ? html`<span class="text-yellow">Unsupported network</span>` : nothing}
+          ${chainId != null
+            ? html`<span class="wallet-pill-network ${isSupportedNetwork ? '' : 'text-yellow'}">${currentNetwork?.label ?? `Chain ${chainId}`}</span>`
+            : nothing}
         </div>
       ` : html`<div class="wallet-pill"><span class="dot"></span><span>Not connected</span></div>`}
     </header>
@@ -258,7 +259,7 @@ function DidManager() {
 
   const renderConnect = () => html`
     <div class="connect-screen">
-      <h1>Manage Your<br><span>DID:Ethr</span></h1>
+      <h1>Manage Your<br><span>did:ethr</span></h1>
       <p>
         Connect your Ethereum wallet to manage your decentralised identity.
         Supports any network where the EthereumDIDRegistry is deployed.
