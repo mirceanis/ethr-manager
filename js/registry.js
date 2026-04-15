@@ -8,6 +8,7 @@
 import { useState, useCallback } from './imports.js';
 import { ethers } from './imports.js';
 import { KEY_VALIDITY_DEFAULT } from './utils.js';
+import { getKeyAttributeInput } from './keys.js';
 
 const REGISTRY_ABI = [
   'function setAttribute(address identity, bytes32 name, bytes value, uint validity)',
@@ -65,19 +66,21 @@ export function useRegistry(identity, ethersSigner, network, onSuccess) {
   // ── Key operations ────────────────────────────────────────────────────
   const addKey = useCallback(async (kp, validity = KEY_VALIDITY_DEFAULT) => {
     if (!ethersSigner || !network || !identity) return null;
-    const attrName  = toBytes32('did/pub/Secp256k1/veriKey/hex');
-    const attrValue = ethers.getBytes(kp.publicKey);
+    const attrInput = getKeyAttributeInput(kp);
+    const attrName  = toBytes32(attrInput.name);
+    const attrValue = ethers.getBytes(attrInput.value);
     const ok = await runTx(
       () => getContract().setAttribute(identity, attrName, attrValue, validity),
       'Key added to DID document.',
     );
-    return ok ? { attrName, attrValue: kp.publicKey } : null;
+    return ok ? { attrName, attrValue: attrInput.value } : null;
   }, [ethersSigner, network, identity, runTx, getContract]);
 
   const removeKey = useCallback(async (kp) => {
     if (!ethersSigner || !network || !identity) return;
-    const attrName  = kp.attrName  || toBytes32('did/pub/Secp256k1/veriKey/hex');
-    const attrValue = ethers.getBytes(kp.attrValue || kp.publicKey);
+    const attrInput = getKeyAttributeInput(kp);
+    const attrName  = kp.attrName  || toBytes32(attrInput.name);
+    const attrValue = ethers.getBytes(kp.attrValue || attrInput.value);
     return runTx(
       () => getContract().revokeAttribute(identity, attrName, attrValue),
       'Key removed from DID document.',

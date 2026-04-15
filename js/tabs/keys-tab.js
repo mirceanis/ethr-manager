@@ -4,6 +4,15 @@
 
 import { html, nothing } from '../imports.js';
 import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
+import {
+  KEY_TYPE_OPTIONS,
+  getAllowedRelationships,
+  getRelationshipLabel,
+  getKeyTypeLabel,
+  getVerificationRelationships,
+  isLocalKeyOnDidDocument,
+  keyMatchesVerificationMethod,
+} from '../keys.js';
 
 /**
  * @param {{
@@ -11,6 +20,10 @@ import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
  *   localKeys:     object[],
  *   didDocument:   object|null,
  *   txPending:     boolean,
+ *   newKeyType:    string,
+ *   newKeyRelationship: string,
+ *   onNewKeyTypeChange: (value: string) => void,
+ *   onNewKeyRelationshipChange: (value: string) => void,
  *   keyTtls:       Record<string, number>,
  *   onTtlChange:   (id: string, seconds: number) => void,
  *   onGenerate:    () => void,
@@ -22,26 +35,21 @@ import { KEY_VALIDITY_DEFAULT, formatTtl } from '../utils.js';
 export const KeysTab = ({
   canManage,
   localKeys, didDocument, txPending,
+  newKeyType, newKeyRelationship,
+  onNewKeyTypeChange, onNewKeyRelationshipChange,
   keyTtls, onTtlChange,
   onGenerate, onAddKey, onRemoveKey, onDeleteLocal,
 }) => {
   const docVMs = didDocument?.verificationMethod ?? [];
-  const managedPublicKey = didDocument?.id?.split(':').pop()?.toLowerCase();
+  const allowedRelationships = getAllowedRelationships(newKeyType);
 
   // Derive on-chain presence from the live DID document, not from stored flag.
-  const isOnChain = (kp) =>
-    docVMs.some(vm => {
-      if (!vm.publicKeyHex) return false;
-      const fullPublicKey = `0x${vm.publicKeyHex.toLowerCase()}`;
-      if (fullPublicKey === managedPublicKey && vm.id?.endsWith('#controllerKey')) return false;
-      return fullPublicKey === kp.publicKey.toLowerCase();
-    });
+  const isOnChain = (kp) => isLocalKeyOnDidDocument(didDocument, kp);
 
   // Keys in the DID doc that don't belong to any local key
   const externalVMs = docVMs.filter(
     vm => !vm.blockchainAccountId &&
-      !(vm.id?.endsWith('#controllerKey') && `0x${vm.publicKeyHex?.toLowerCase()}` === managedPublicKey) &&
-      !localKeys.some(k => k.publicKey.slice(2).toLowerCase() === vm.publicKeyHex?.toLowerCase()),
+      !localKeys.some(k => keyMatchesVerificationMethod(k, vm, didDocument)),
   );
 
   return html`
@@ -51,13 +59,28 @@ export const KeysTab = ({
         <button class="btn btn-primary btn-sm" @click=${onGenerate} .disabled=${txPending}>+ Generate Key</button>
       </div>
       <p class="network-warn-copy">
-        Keys are generated locally (secp256k1) and stored in your browser. Add them to your DID document on-chain.
+        Keys are generated locally and stored in your browser. Add them to your DID document with the verification relationship you need.
       </p>
       ${!canManage ? html`
         <div class="warn-box">
           Connected wallet is not the current DID controller. You can inspect keys, but on-chain key changes are disabled.
         </div>
       ` : nothing}
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Key Type</label>
+          <select class="form-input" .value=${newKeyType} @change=${e => onNewKeyTypeChange(e.target.value)} .disabled=${txPending}>
+            ${KEY_TYPE_OPTIONS.map(type => html`<option value=${type}>${getKeyTypeLabel(type)}</option>`) }
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Verification Relationship</label>
+          <select class="form-input" .value=${newKeyRelationship} @change=${e => onNewKeyRelationshipChange(e.target.value)} .disabled=${txPending}>
+            ${allowedRelationships.map(relationship => html`<option value=${relationship}>${getRelationshipLabel(relationship)}</option>`)}
+          </select>
+        </div>
+      </div>
 
       ${localKeys.length === 0
         ? html`<div class="empty-state"><div class="empty-icon">🔑</div><div>No local keys yet.<br>Click "Generate Key" to create one.</div></div>`
@@ -69,10 +92,11 @@ export const KeysTab = ({
                 <div class="key-icon">${onChain ? '🔐' : '🔑'}</div>
                 <div class="key-body">
                   <div class="key-label">
-                    Secp256k1
+                    ${getKeyTypeLabel(kp.type)}
                     ${onChain
                       ? html`<span class="badge badge-green badge-offset">On-chain</span>`
                       : html`<span class="badge badge-muted badge-offset">Local only</span>`}
+                    <span class="badge badge-blue badge-offset">${getRelationshipLabel(kp.relationship)}</span>
                   </div>
                   <div class="key-val" title="${kp.publicKey}">${kp.publicKey}</div>
                   <div class="key-val key-created-at">${new Date(kp.created).toLocaleString()}</div>
@@ -112,8 +136,14 @@ export const KeysTab = ({
           <div class="key-item">
             <div class="key-icon">🔏</div>
             <div class="key-body">
-              <div class="key-label">${vm.type} <span class="badge badge-blue badge-offset">External</span></div>
-              <div class="key-val" title="${vm.publicKeyHex}">${vm.publicKeyHex ? '0x' + vm.publicKeyHex : vm.blockchainAccountId}</div>
+              <div class="key-label">
+                ${vm.type}
+                <span class="badge badge-blue badge-offset">External</span>
+                ${getVerificationRelationships(didDocument, vm).map(relationship => html`
+                  <span class="badge badge-muted badge-offset">${getRelationshipLabel(relationship)}</span>
+                `)}
+              </div>
+              <div class="key-val" title="${vm.publicKeyHex || vm.publicKeyBase58 || vm.blockchainAccountId}">${vm.publicKeyHex ? '0x' + vm.publicKeyHex : (vm.publicKeyBase58 || vm.blockchainAccountId)}</div>
             </div>
             <button class="btn btn-danger btn-sm" .disabled=${true} title="Import the private key locally to remove this key">Remove</button>
           </div>

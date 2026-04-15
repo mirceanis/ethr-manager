@@ -11,7 +11,7 @@ import { html, nothing } from './imports.js';
 import { useWallet }   from './wallet.js';
 import { resolveDID }  from './resolver.js';
 import { useRegistry } from './registry.js';
-import { loadLocalKeys, saveLocalKeys, generateKeyPair } from './keys.js';
+import { loadLocalKeys, saveLocalKeys, generateKeyPair, getAllowedRelationships, getDefaultRelationship, isLocalKeyOnDidDocument } from './keys.js';
 
 import { DocumentTab } from './tabs/document-tab.js';
 import { KeysTab }     from './tabs/keys-tab.js';
@@ -46,6 +46,8 @@ function DidManager() {
   const [managedNetworkName, setManagedNetworkName] = useState('');
   const [identityInput,      setIdentityInput]      = useState('');
   const [identityMode,    setIdentityMode]    = useState('account');
+  const [newKeyType, setNewKeyType] = useState('Secp256k1');
+  const [newKeyRelationship, setNewKeyRelationship] = useState(getDefaultRelationship('Secp256k1'));
   const [svcType,     setSvcType]     = useState('');
   const [svcEndpoint, setSvcEndpoint] = useState('');
   const [svcTtl,      setSvcTtl]      = useState(KEY_VALIDITY_DEFAULT);
@@ -144,6 +146,13 @@ function DidManager() {
   const currentOwner = didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? null;
   const canManage = !!account && !!didDocument && sameAddr(account, currentOwner || '');
 
+  useEffect(() => {
+    const allowed = getAllowedRelationships(newKeyType);
+    if (!allowed.includes(newKeyRelationship)) {
+      setNewKeyRelationship(getDefaultRelationship(newKeyType));
+    }
+  }, [newKeyType, newKeyRelationship]);
+
   // ── Registry actions ──────────────────────────────────────────────────
   const onTxSuccess = useCallback(async (msg, txHash) => {
     showBanner('success', msg, txHash);
@@ -235,12 +244,17 @@ function DidManager() {
   }, [account, currentNetwork?.name, applyManagedDid]);
 
   // ── Key handlers ──────────────────────────────────────────────────────
-  const handleGenerateKey = useCallback(() => {
-    const kp   = generateKeyPair();
-    const keys = [...localKeys, kp];
-    setLocalKeys(keys); saveLocalKeys(keys);
-    showBanner('success', 'Key pair generated and saved locally.');
-  }, [localKeys, showBanner]);
+  const handleGenerateKey = useCallback(async () => {
+    try {
+      const kp = await generateKeyPair(newKeyType);
+      const key = { ...kp, relationship: newKeyRelationship };
+      const keys = [...localKeys, key];
+      setLocalKeys(keys); saveLocalKeys(keys);
+      showBanner('success', `${newKeyType} key pair generated and saved locally.`);
+    } catch (e) {
+      showBanner('error', e.message || 'Key generation failed.');
+    }
+  }, [localKeys, newKeyType, newKeyRelationship, showBanner]);
 
   const handleAddKey = useCallback(async (kp) => {
     const validity = keyTtls[kp.id] ?? KEY_VALIDITY_DEFAULT;
@@ -261,10 +275,7 @@ function DidManager() {
   }, [registry]);
 
   const handleDeleteLocal = useCallback((kp) => {
-    const docVMs = didDocument?.verificationMethod ?? [];
-    const isOnChain = docVMs.some(
-      vm => vm.publicKeyHex?.toLowerCase() === kp.publicKey.slice(2).toLowerCase(),
-    );
+    const isOnChain = isLocalKeyOnDidDocument(didDocument, kp);
     if (isOnChain) {
       showBanner('error', 'Remove this key from the DID document before deleting it locally.');
       return;
@@ -480,6 +491,10 @@ function DidManager() {
             ${tab === 'keys' ? KeysTab({
                 canManage,
                 localKeys, didDocument, txPending: registry.txPending,
+                newKeyType,
+                newKeyRelationship,
+                onNewKeyTypeChange: setNewKeyType,
+                onNewKeyRelationshipChange: setNewKeyRelationship,
                 keyTtls,
                 onTtlChange:   (id, val) => setKeyTtls(prev => ({ ...prev, [id]: val })),
                 onGenerate:    handleGenerateKey,
