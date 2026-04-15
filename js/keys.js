@@ -220,6 +220,20 @@ export function isLocalKeyOnDidDocument(didDocument, key) {
   );
 }
 
+// ── Controller key lookup ─────────────────────────────────────────────────
+
+/**
+ * Find a local Secp256k1 key whose Ethereum address matches the given
+ * controller address.  Returns the key object or null.
+ */
+export function findControllerKey(localKeys, controllerAddress) {
+  if (!controllerAddress) return null;
+  const target = controllerAddress.toLowerCase();
+  return localKeys.find(k =>
+    k.type === 'Secp256k1' && k.privateKey && k.address?.toLowerCase() === target,
+  ) ?? null;
+}
+
 // ── Persistence ───────────────────────────────────────────────────────────
 
 export const loadLocalKeys = () => {

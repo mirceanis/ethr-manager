@@ -11,7 +11,7 @@ import { html, nothing } from './imports.js';
 import { useWallet }   from './wallet.js';
 import { resolveDID }  from './resolver.js';
 import { useRegistry } from './registry.js';
-import { loadLocalKeys, saveLocalKeys, generateKeyPair, getAllowedRelationships, getDefaultRelationship, isLocalKeyOnDidDocument, vmToAttributeInput } from './keys.js';
+import { loadLocalKeys, saveLocalKeys, generateKeyPair, getAllowedRelationships, getDefaultRelationship, isLocalKeyOnDidDocument, vmToAttributeInput, findControllerKey } from './keys.js';
 
 import { DocumentTab } from './tabs/document-tab.js';
 import { KeysTab }     from './tabs/keys-tab.js';
@@ -149,7 +149,10 @@ function DidManager() {
   const canUseManagedNetwork = !!managedNetwork && !!currentNetwork && walletMatchesManagedNetwork;
   const managedIdentityType = managedIdentifier && managedIdentifier.length > 42 ? 'public key' : 'address';
   const currentOwner = didDocument?.verificationMethod?.[0]?.blockchainAccountId?.split(':').pop() ?? null;
-  const canManage = !!account && !!didDocument && sameAddr(account, currentOwner || '');
+  const canManageDirect = !!account && !!didDocument && sameAddr(account, currentOwner || '');
+  const controllerKey   = findControllerKey(localKeys, currentOwner);
+  const canManageSigned = !canManageDirect && !!controllerKey && !!account && !!didDocument;
+  const canManage       = canManageDirect || canManageSigned;
 
   useEffect(() => {
     const allowed = getAllowedRelationships(newKeyType);
@@ -175,7 +178,7 @@ function DidManager() {
     }
   }, [managedIdentifier, ethersProvider, canUseManagedNetwork, resolvedManagedDid, showBanner]);
 
-  const registry = useRegistry(managedIdentityAddress || null, ethersSigner, canUseManagedNetwork ? managedNetwork : null, onTxSuccess);
+  const registry = useRegistry(managedIdentityAddress || null, ethersSigner, canUseManagedNetwork ? managedNetwork : null, onTxSuccess, canManageSigned ? controllerKey : null);
 
   // ── Auto-resolve when account/chain become valid ──────────────────────
   useEffect(() => {
@@ -411,6 +414,9 @@ function DidManager() {
         ${managedIdentifier
           ? html`<span class="badge badge-blue">Managing ${managedIdentityType}</span>`
           : nothing}
+        ${canManageSigned
+          ? html`<span class="badge badge-purple">Signed mode</span>`
+          : nothing}
       </div>
       ${managedNetwork && currentNetwork && !walletMatchesManagedNetwork ? html`
         <div class="warn-box warn-box-top">
@@ -419,7 +425,12 @@ function DidManager() {
       ` : nothing}
       ${managedIdentifier && didDocument && !canManage ? html`
         <div class="warn-box warn-box-top">
-          Connected wallet ${shortAddr(account || '')} is not the current controller for ${shortAddr(managedIdentityAddress || managedIdentifier)}. You can resolve this DID, but on-chain changes stay disabled until the controller wallet connects.
+          Connected wallet ${shortAddr(account || '')} is not the current controller for ${shortAddr(managedIdentityAddress || managedIdentifier)}. You can resolve this DID, but on-chain changes stay disabled until the controller wallet connects or a matching local key is available.
+        </div>
+      ` : nothing}
+      ${canManageSigned ? html`
+        <div class="info-box info-box-top">
+          <strong>Signed mode:</strong> Operations will be signed by local key ${shortAddr(controllerKey.address)} and relayed by the connected wallet.
         </div>
       ` : nothing}
     </div>

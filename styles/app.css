@@ -326,6 +326,7 @@ select.form-input { appearance: none; }
 .badge-green { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-line); }
 .badge-blue  { background: #3b82f618; color: var(--blue);   border: 1px solid #3b82f630; }
 .badge-red   { background: #ef444418; color: #ef4444;       border: 1px solid #ef444430; }
+.badge-purple{ background: #a855f718; color: #a855f7;       border: 1px solid #a855f730; }
 .badge-muted { background: var(--border); color: var(--muted); }
 .badge-offset { margin-left: 8px; }
 
@@ -384,6 +385,15 @@ select.form-input { appearance: none; }
   line-height: 1.7; margin-bottom: 16px;
 }
 .warn-box-top { margin-top: 16px; }
+
+/* Info box (signed mode, etc.) */
+.info-box {
+  background: #0a0d1a; border: 1px solid #1e2d5a;
+  border-radius: var(--radius-sm); padding: 16px;
+  font-size: 14px; color: #7da0e0; font-family: var(--mono);
+  line-height: 1.7; margin-bottom: 16px;
+}
+.info-box-top { margin-top: 16px; }
 
 /* TTL controls */
 .ttl-row { gap: 8px; margin-bottom: 16px; }

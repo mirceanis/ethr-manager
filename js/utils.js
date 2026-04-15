@@ -2,17 +2,18 @@ import { ethers } from './imports.js';
 
 // Deployments mirrored from ethr-did-resolver's built-in list.
 // Each entry: { chainId, name, registry, label, explorerTx? }
+// ideally these would be imported
 const RAW_DEPLOYMENTS = [
-  { chainId: 1,          name: 'mainnet',       registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Ethereum Mainnet',   explorerTx: 'https://etherscan.io/tx/' },
-  { chainId: 11155111,   name: 'sepolia',        registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Sepolia',             explorerTx: 'https://sepolia.etherscan.io/tx/' },
-  { chainId: 100,        name: 'gno',            registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Gnosis Chain',        explorerTx: 'https://gnosisscan.io/tx/' },
-  { chainId: 17000,      name: 'holesky',        registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Holesky',             explorerTx: 'https://holesky.etherscan.io/tx/' },
-  { chainId: 137,        name: 'polygon',        registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Polygon',             explorerTx: 'https://polygonscan.com/tx/' },
-  { chainId: 80001,      name: 'polygon:test',   registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Polygon Mumbai',      explorerTx: 'https://mumbai.polygonscan.com/tx/' },
-  { chainId: 246,        name: 'ewc',            registry: '0xE29672f34e92b56C9169f9D485fFc8b9A136BCE4', label: 'Energy Web Chain',    explorerTx: 'https://explorer.energyweb.org/tx/' },
-  { chainId: 73799,      name: 'volta',          registry: '0xC15D5A57A8Eb0e1dCBE5D88B8f9a82017e5Cc4AF', label: 'Volta (EWC testnet)', explorerTx: null },
-  { chainId: 59141,      name: 'linea-sepolia',  registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Linea Sepolia',       explorerTx: 'https://sepolia.lineascan.build/tx/' },
-  { chainId: 1313161554, name: 'aurora',         registry: '0x63eD58B671EeD12Bc1652845ba5b2CDfBff198e0', label: 'Aurora',              explorerTx: 'https://explorer.aurora.dev/tx/' },
+  { chainId: 1,          name: 'mainnet',        registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Ethereum Mainnet',    explorerTx: 'https://etherscan.io/tx/', legacyNonce: true },
+  { chainId: 11155111,   name: 'sepolia',        registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Sepolia',             explorerTx: 'https://sepolia.etherscan.io/tx/', legacyNonce: false },
+  { chainId: 100,        name: 'gno',            registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Gnosis Chain',        explorerTx: 'https://gnosisscan.io/tx/', legacyNonce: false },
+  { chainId: 17000,      name: 'holesky',        registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Holesky',             explorerTx: 'https://holesky.etherscan.io/tx/', legacyNonce: false },
+  { chainId: 137,        name: 'polygon',        registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Polygon',             explorerTx: 'https://polygonscan.com/tx/', legacyNonce: true },
+  { chainId: 80001,      name: 'polygon:test',   registry: '0xdca7ef03e98e0dc2b855be647c39abe984fcf21b', label: 'Polygon Mumbai',      explorerTx: 'https://mumbai.polygonscan.com/tx/', legacyNonce: true },
+  { chainId: 246,        name: 'ewc',            registry: '0xE29672f34e92b56C9169f9D485fFc8b9A136BCE4', label: 'Energy Web Chain',    explorerTx: 'https://explorer.energyweb.org/tx/', legacyNonce: false },
+  { chainId: 73799,      name: 'volta',          registry: '0xC15D5A57A8Eb0e1dCBE5D88B8f9a82017e5Cc4AF', label: 'Volta (EWC testnet)', explorerTx: null, legacyNonce: false },
+  { chainId: 59141,      name: 'linea-sepolia',  registry: '0x03d5003bf0e79C5F5223588F347ebA39AfbC3818', label: 'Linea Sepolia',       explorerTx: 'https://sepolia.lineascan.build/tx/', legacyNonce: false },
+  { chainId: 1313161554, name: 'aurora',         registry: '0x63eD58B671EeD12Bc1652845ba5b2CDfBff198e0', label: 'Aurora',              explorerTx: 'https://explorer.aurora.dev/tx/', legacyNonce: false },
 ];
 
 // Keyed by chainId for O(1) lookup.
