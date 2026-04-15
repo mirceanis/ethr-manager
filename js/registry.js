@@ -8,7 +8,7 @@
 import { useState, useCallback } from './imports.js';
 import { ethers } from './imports.js';
 import { KEY_VALIDITY_DEFAULT } from './utils.js';
-import { getKeyAttributeInput } from './keys.js';
+import { getKeyAttributeInput, getRelationshipAttrSegment } from './keys.js';
 
 const REGISTRY_ABI = [
   'function setAttribute(address identity, bytes32 name, bytes value, uint validity)',
@@ -87,6 +87,35 @@ export function useRegistry(identity, ethersSigner, network, onSuccess) {
     );
   }, [ethersSigner, network, identity, runTx, getContract]);
 
+  const addRawKey = useCallback(async (type, hexValue, relationship, validity = KEY_VALIDITY_DEFAULT) => {
+    if (!ethersSigner || !network || !identity) return;
+    const purpose = getRelationshipAttrSegment(relationship);
+    const nameStr = `did/pub/${type}/${purpose}`;
+    if (ethers.toUtf8Bytes(nameStr).length > 32) {
+      setTxError(`Attribute name too long (${ethers.toUtf8Bytes(nameStr).length}/32 bytes): "${nameStr}"`);
+      return;
+    }
+    let valueBytes;
+    try {
+      valueBytes = ethers.getBytes(hexValue);
+    } catch {
+      setTxError('Invalid hex value for key material.');
+      return;
+    }
+    return runTx(
+      () => getContract().setAttribute(identity, toBytes32(nameStr), valueBytes, validity),
+      'Key material added to DID document.',
+    );
+  }, [ethersSigner, network, identity, runTx, getContract]);
+
+  const removeExternalKey = useCallback(async (nameStr, valueHex) => {
+    if (!ethersSigner || !network || !identity) return;
+    return runTx(
+      () => getContract().revokeAttribute(identity, toBytes32(nameStr), ethers.getBytes(valueHex)),
+      'Key removed from DID document.',
+    );
+  }, [ethersSigner, network, identity, runTx, getContract]);
+
   // ── Service operations ────────────────────────────────────────────────
   const addService = useCallback(async (svcType, svcEndpoint, validity = KEY_VALIDITY_DEFAULT) => {
     if (!ethersSigner || !network || !identity) return;
@@ -141,6 +170,8 @@ export function useRegistry(identity, ethersSigner, network, onSuccess) {
     clearTxError: () => setTxError(null),
     addKey,
     removeKey,
+    addRawKey,
+    removeExternalKey,
     addService,
     removeService,
     transferOwnership,

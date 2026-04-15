@@ -7,6 +7,18 @@ const RELATIONSHIP_CONFIG = {
   keyAgreement:    { attrSegment: 'enc',     label: 'Key Agreement' },
 };
 
+// Reverse mapping from DID document VM types to the algorithm segment used in
+// ERC-1056 setAttribute names (did/pub/<algorithm>/…).
+const VM_TYPE_TO_ALGORITHM = {
+  EcdsaSecp256k1VerificationKey2019: 'Secp256k1',
+  EcdsaSecp256k1RecoveryMethod2020: 'Secp256k1',
+  Ed25519VerificationKey2018:       'Ed25519',
+  Ed25519VerificationKey2020:       'Ed25519',
+  X25519KeyAgreementKey2019:        'X25519',
+  X25519KeyAgreementKey2020:        'X25519',
+  RSAVerificationKey2018:           'RSA',
+};
+
 const KEY_TYPE_CONFIG = {
   Secp256k1: {
     label: 'Secp256k1',
@@ -32,6 +44,11 @@ const KEY_TYPE_CONFIG = {
 };
 
 export const KEY_TYPE_OPTIONS = Object.keys(KEY_TYPE_CONFIG);
+
+export const ALL_RELATIONSHIPS = Object.keys(RELATIONSHIP_CONFIG);
+
+export const getRelationshipAttrSegment = (relationship) =>
+  RELATIONSHIP_CONFIG[relationship]?.attrSegment ?? relationship;
 
 export const getAllowedRelationships = (keyType = 'Secp256k1') =>
   KEY_TYPE_CONFIG[keyType]?.relationships ?? KEY_TYPE_CONFIG.Secp256k1.relationships;
@@ -145,6 +162,35 @@ export function getVerificationRelationships(didDocument, vm) {
   return Object.keys(RELATIONSHIP_CONFIG).filter(
     relationship => (didDocument?.[relationship] ?? []).includes(vm.id),
   );
+}
+
+/**
+ * Reconstruct the ERC-1056 attribute name and raw value from a resolved
+ * verification method so that `revokeAttribute` can be called without
+ * possessing the private key.
+ */
+export function vmToAttributeInput(vm, didDocument) {
+  const algorithm = VM_TYPE_TO_ALGORITHM[vm.type] ?? vm.type;
+
+  let encoding, value;
+  if (vm.publicKeyHex != null) {
+    encoding = 'hex';
+    value = vm.publicKeyHex.startsWith('0x') ? vm.publicKeyHex : '0x' + vm.publicKeyHex;
+  } else if (vm.publicKeyBase58 != null) {
+    encoding = 'base58';
+    value = ethers.toBeHex(ethers.decodeBase58(vm.publicKeyBase58));
+  } else if (vm.publicKeyBase64 != null) {
+    encoding = 'base64';
+    value = ethers.hexlify(ethers.decodeBase64(vm.publicKeyBase64));
+  } else {
+    throw new Error('Cannot determine key encoding from verification method.');
+  }
+
+  const relationships = getVerificationRelationships(didDocument, vm);
+  const relationship = relationships[0] ?? 'assertionMethod';
+  const purpose = RELATIONSHIP_CONFIG[relationship]?.attrSegment ?? 'veriKey';
+
+  return { name: `did/pub/${algorithm}/${purpose}/${encoding}`, value };
 }
 
 export function keyMatchesVerificationMethod(key, vm, didDocument = null) {

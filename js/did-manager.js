@@ -11,7 +11,7 @@ import { html, nothing } from './imports.js';
 import { useWallet }   from './wallet.js';
 import { resolveDID }  from './resolver.js';
 import { useRegistry } from './registry.js';
-import { loadLocalKeys, saveLocalKeys, generateKeyPair, getAllowedRelationships, getDefaultRelationship, isLocalKeyOnDidDocument } from './keys.js';
+import { loadLocalKeys, saveLocalKeys, generateKeyPair, getAllowedRelationships, getDefaultRelationship, isLocalKeyOnDidDocument, vmToAttributeInput } from './keys.js';
 
 import { DocumentTab } from './tabs/document-tab.js';
 import { KeysTab }     from './tabs/keys-tab.js';
@@ -54,6 +54,11 @@ function DidManager() {
   const [newOwner,    setNewOwner]    = useState('');
   // per-key TTL in seconds, keyed by kp.id; falls back to KEY_VALIDITY_DEFAULT
   const [keyTtls,     setKeyTtls]     = useState({});
+  // Raw key material (direct to chain)
+  const [rawKeyType,  setRawKeyType]  = useState('');
+  const [rawKeyValue, setRawKeyValue] = useState('');
+  const [rawKeyRelationship, setRawKeyRelationship] = useState('assertionMethod');
+  const [rawKeyTtl,   setRawKeyTtl]   = useState(KEY_VALIDITY_DEFAULT);
 
   // ── Success/error banner ──────────────────────────────────────────────
   const [banner, setBanner] = useState(null); // { type: 'success'|'error', msg, txHash? }
@@ -284,6 +289,22 @@ function DidManager() {
     setLocalKeys(keys); saveLocalKeys(keys);
   }, [localKeys, didDocument, showBanner]);
 
+  const handleAddRawKey = useCallback(async () => {
+    const ok = await registry.addRawKey(rawKeyType.trim(), rawKeyValue.trim(), rawKeyRelationship, rawKeyTtl);
+    if (ok) {
+      setRawKeyType(''); setRawKeyValue('');
+    }
+  }, [rawKeyType, rawKeyValue, rawKeyRelationship, rawKeyTtl, registry]);
+
+  const handleRemoveExternalKey = useCallback(async (vm) => {
+    try {
+      const { name, value } = vmToAttributeInput(vm, didDocument);
+      await registry.removeExternalKey(name, value);
+    } catch (e) {
+      showBanner('error', e.message);
+    }
+  }, [didDocument, registry, showBanner]);
+
   // ── Service handlers ──────────────────────────────────────────────────
   const handleAddService = useCallback(async () => {
     const ok = await registry.addService(svcType, svcEndpoint, svcTtl);
@@ -501,6 +522,16 @@ function DidManager() {
                 onAddKey:      handleAddKey,
                 onRemoveKey:   handleRemoveKey,
                 onDeleteLocal: handleDeleteLocal,
+                rawKeyType,
+                rawKeyValue,
+                rawKeyRelationship,
+                rawKeyTtl,
+                onRawKeyTypeChange:  setRawKeyType,
+                onRawKeyValueChange: setRawKeyValue,
+                onRawKeyRelationshipChange: setRawKeyRelationship,
+                onRawKeyTtlChange:   setRawKeyTtl,
+                onAddRawKey:         handleAddRawKey,
+                onRemoveExternalKey: handleRemoveExternalKey,
               }) : nothing}
 
             ${tab === 'services' ? ServicesTab({

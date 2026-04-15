@@ -325,6 +325,7 @@ select.form-input { appearance: none; }
 }
 .badge-green { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-line); }
 .badge-blue  { background: #3b82f618; color: var(--blue);   border: 1px solid #3b82f630; }
+.badge-red   { background: #ef444418; color: #ef4444;       border: 1px solid #ef444430; }
 .badge-muted { background: var(--border); color: var(--muted); }
 .badge-offset { margin-left: 8px; }
 
