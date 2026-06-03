@@ -59,6 +59,7 @@ function DidManager() {
   const [rawKeyValue, setRawKeyValue] = useState('');
   const [rawKeyRelationship, setRawKeyRelationship] = useState('assertionMethod');
   const [rawKeyTtl,   setRawKeyTtl]   = useState(KEY_VALIDITY_DEFAULT);
+  const [multikeyAlgorithm, setMultikeyAlgorithm] = useState('BLS12-381-G2');
 
   // ── Success/error banner ──────────────────────────────────────────────
   const [banner, setBanner] = useState(null); // { type: 'success'|'error', msg, txHash? }
@@ -155,11 +156,12 @@ function DidManager() {
   const canManage       = canManageDirect || canManageSigned;
 
   useEffect(() => {
-    const allowed = getAllowedRelationships(newKeyType);
+    const algo = newKeyType === 'Multikey' ? multikeyAlgorithm : null;
+    const allowed = getAllowedRelationships(newKeyType, algo);
     if (!allowed.includes(newKeyRelationship)) {
-      setNewKeyRelationship(getDefaultRelationship(newKeyType));
+      setNewKeyRelationship(getDefaultRelationship(newKeyType, algo));
     }
-  }, [newKeyType, newKeyRelationship]);
+  }, [newKeyType, newKeyRelationship, multikeyAlgorithm]);
 
   // ── Registry actions ──────────────────────────────────────────────────
   const onTxSuccess = useCallback(async (msg, txHash) => {
@@ -254,15 +256,17 @@ function DidManager() {
   // ── Key handlers ──────────────────────────────────────────────────────
   const handleGenerateKey = useCallback(async () => {
     try {
-      const kp = await generateKeyPair(newKeyType);
+      const algo = newKeyType === 'Multikey' ? multikeyAlgorithm : null;
+      const kp = await generateKeyPair(newKeyType, algo);
       const key = { ...kp, relationship: newKeyRelationship };
       const keys = [...localKeys, key];
       setLocalKeys(keys); saveLocalKeys(keys);
-      showBanner('success', `${newKeyType} key pair generated and saved locally.`);
+      const label = newKeyType === 'Multikey' ? `Multikey (${algo})` : newKeyType;
+      showBanner('success', `${label} key pair generated and saved locally.`);
     } catch (e) {
       showBanner('error', e.message || 'Key generation failed.');
     }
-  }, [localKeys, newKeyType, newKeyRelationship, showBanner]);
+  }, [localKeys, newKeyType, newKeyRelationship, multikeyAlgorithm, showBanner]);
 
   const handleAddKey = useCallback(async (kp) => {
     const validity = keyTtls[kp.id] ?? KEY_VALIDITY_DEFAULT;
@@ -525,8 +529,10 @@ function DidManager() {
                 localKeys, didDocument, txPending: registry.txPending,
                 newKeyType,
                 newKeyRelationship,
+                multikeyAlgorithm,
                 onNewKeyTypeChange: setNewKeyType,
                 onNewKeyRelationshipChange: setNewKeyRelationship,
+                onMultikeyAlgorithmChange: setMultikeyAlgorithm,
                 keyTtls,
                 onTtlChange:   (id, val) => setKeyTtls(prev => ({ ...prev, [id]: val })),
                 onGenerate:    handleGenerateKey,

@@ -16,6 +16,8 @@ import {
   isLocalKeyOnDidDocument,
   keyMatchesVerificationMethod,
   getVmDisplayMaterial,
+  MULTIKEY_ALGORITHM_OPTIONS,
+  getMultikeyAlgorithmLabel,
 } from '../keys.js';
 
 /**
@@ -26,6 +28,8 @@ import {
  *   txPending:     boolean,
  *   newKeyType:    string,
  *   newKeyRelationship: string,
+ *   multikeyAlgorithm: string,
+ *   onMultikeyAlgorithmChange: (value: string) => void,
  *   onNewKeyTypeChange: (value: string) => void,
  *   onNewKeyRelationshipChange: (value: string) => void,
  *   keyTtls:       Record<string, number>,
@@ -51,6 +55,7 @@ export const KeysTab = ({
   localKeys, didDocument, txPending,
   newKeyType, newKeyRelationship,
   onNewKeyTypeChange, onNewKeyRelationshipChange,
+  multikeyAlgorithm, onMultikeyAlgorithmChange,
   keyTtls, onTtlChange,
   onGenerate, onAddKey, onRemoveKey, onDeleteLocal,
   rawKeyType, rawKeyValue, rawKeyRelationship, rawKeyTtl,
@@ -59,7 +64,8 @@ export const KeysTab = ({
   onAddRawKey, onRemoveExternalKey,
 }) => {
   const docVMs = didDocument?.verificationMethod ?? [];
-  const allowedRelationships = getAllowedRelationships(newKeyType);
+  const multikeyAlgo = newKeyType === 'Multikey' ? multikeyAlgorithm : null;
+  const allowedRelationships = getAllowedRelationships(newKeyType, multikeyAlgo);
 
   // Derive on-chain presence from the live DID document, not from stored flag.
   const isOnChain = (kp) => isLocalKeyOnDidDocument(didDocument, kp);
@@ -97,6 +103,14 @@ export const KeysTab = ({
             ${KEY_TYPE_OPTIONS.map(type => html`<option value=${type}>${getKeyTypeLabel(type)}</option>`) }
           </select>
         </div>
+        ${newKeyType === 'Multikey' ? html`
+        <div class="form-group">
+          <label class="form-label">Algorithm</label>
+          <select class="form-input" .value=${multikeyAlgorithm} @change=${e => onMultikeyAlgorithmChange(e.target.value)} .disabled=${txPending}>
+            ${MULTIKEY_ALGORITHM_OPTIONS.map(algo => html`<option value=${algo}>${getMultikeyAlgorithmLabel(algo)}</option>`)}
+          </select>
+        </div>
+        ` : nothing}
         <div class="form-group">
           <label class="form-label">Verification Relationship</label>
           <select class="form-input" .value=${newKeyRelationship} @change=${e => onNewKeyRelationshipChange(e.target.value)} .disabled=${txPending}>
@@ -115,7 +129,7 @@ export const KeysTab = ({
                 <div class="key-icon">${onChain ? '🔐' : '🔑'}</div>
                 <div class="key-body">
                   <div class="key-label">
-                    ${getKeyTypeLabel(kp.type)}
+                    ${getKeyTypeLabel(kp.type, kp.multikeyAlgorithm)}
                     ${onChain
                       ? html`<span class="badge badge-green badge-offset">On-chain</span>`
                       : html`<span class="badge badge-muted badge-offset">Local only</span>`}

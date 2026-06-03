@@ -17,6 +17,7 @@ const VM_TYPE_TO_ALGORITHM = {
   X25519KeyAgreementKey2019:        'X25519',
   X25519KeyAgreementKey2020:        'X25519',
   RSAVerificationKey2018:           'RSA',
+  Multikey:                         'Multikey',
 };
 
 const KEY_TYPE_CONFIG = {
@@ -41,38 +42,76 @@ const KEY_TYPE_CONFIG = {
     defaultRelationship: 'keyAgreement',
     relationships: ['keyAgreement'],
   },
+  Multikey: {
+    label: 'Multikey',
+    didType: 'Multikey',
+    encoding: null, // multicodec prefix is embedded in the value; no encoding hint in attr name
+    defaultRelationship: 'assertionMethod',
+    relationships: ['assertionMethod', 'authentication', 'keyAgreement'],
+  },
+};
+
+// Per-algorithm config for the Multikey VM type.
+// multicodecPrefix: varint-encoded multicodec bytes prepended to raw public key bytes on-chain.
+const MULTIKEY_ALGORITHM_CONFIG = {
+  'BLS12-381-G2':     { label: 'BLS12-381 G2',       multicodecPrefix: new Uint8Array([0xEB, 0x01]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'P-256':            { label: 'P-256',               multicodecPrefix: new Uint8Array([0x80, 0x24]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'ML-DSA-44':        { label: 'ML-DSA-44',           multicodecPrefix: new Uint8Array([0x90, 0x24]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'SLH-DSA-Shake-256f': { label: 'SLH-DSA-Shake-256f', multicodecPrefix: new Uint8Array([0xAB, 0x24]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'ML-KEM-768':       { label: 'ML-KEM-768',          multicodecPrefix: new Uint8Array([0x8C, 0x24]), relationships: ['keyAgreement'],                    defaultRelationship: 'keyAgreement'    },
+  'Secp256k1':        { label: 'Secp256k1',           multicodecPrefix: new Uint8Array([0xE7, 0x01]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'Ed25519':          { label: 'Ed25519',             multicodecPrefix: new Uint8Array([0xED, 0x01]), relationships: ['assertionMethod', 'authentication'], defaultRelationship: 'assertionMethod' },
+  'X25519':           { label: 'X25519',              multicodecPrefix: new Uint8Array([0xEC, 0x01]), relationships: ['keyAgreement'],                    defaultRelationship: 'keyAgreement'    },
 };
 
 export const KEY_TYPE_OPTIONS = Object.keys(KEY_TYPE_CONFIG);
+export const MULTIKEY_ALGORITHM_OPTIONS = Object.keys(MULTIKEY_ALGORITHM_CONFIG);
 
 export const ALL_RELATIONSHIPS = Object.keys(RELATIONSHIP_CONFIG);
 
 export const getRelationshipAttrSegment = (relationship) =>
   RELATIONSHIP_CONFIG[relationship]?.attrSegment ?? relationship;
 
-export const getAllowedRelationships = (keyType = 'Secp256k1') =>
-  KEY_TYPE_CONFIG[keyType]?.relationships ?? KEY_TYPE_CONFIG.Secp256k1.relationships;
+export const getAllowedRelationships = (keyType = 'Secp256k1', multikeyAlgorithm = null) => {
+  if (keyType === 'Multikey' && multikeyAlgorithm)
+    return MULTIKEY_ALGORITHM_CONFIG[multikeyAlgorithm]?.relationships ?? KEY_TYPE_CONFIG.Multikey.relationships;
+  return KEY_TYPE_CONFIG[keyType]?.relationships ?? KEY_TYPE_CONFIG.Secp256k1.relationships;
+};
 
-export const getDefaultRelationship = (keyType = 'Secp256k1') =>
-  KEY_TYPE_CONFIG[keyType]?.defaultRelationship ?? KEY_TYPE_CONFIG.Secp256k1.defaultRelationship;
+export const getDefaultRelationship = (keyType = 'Secp256k1', multikeyAlgorithm = null) => {
+  if (keyType === 'Multikey' && multikeyAlgorithm)
+    return MULTIKEY_ALGORITHM_CONFIG[multikeyAlgorithm]?.defaultRelationship ?? 'assertionMethod';
+  return KEY_TYPE_CONFIG[keyType]?.defaultRelationship ?? KEY_TYPE_CONFIG.Secp256k1.defaultRelationship;
+};
 
 export const getRelationshipLabel = (relationship) =>
   RELATIONSHIP_CONFIG[relationship]?.label ?? relationship;
 
-export const getKeyTypeLabel = (keyType = 'Secp256k1') =>
-  KEY_TYPE_CONFIG[keyType]?.label ?? keyType;
+export const getKeyTypeLabel = (keyType = 'Secp256k1', multikeyAlgorithm = null) => {
+  if (keyType === 'Multikey') {
+    const algoLabel = multikeyAlgorithm && MULTIKEY_ALGORITHM_CONFIG[multikeyAlgorithm]
+      ? MULTIKEY_ALGORITHM_CONFIG[multikeyAlgorithm].label : null;
+    return algoLabel ? `Multikey · ${algoLabel}` : 'Multikey';
+  }
+  return KEY_TYPE_CONFIG[keyType]?.label ?? keyType;
+};
 
-function normalizeRelationship(keyType, relationship) {
-  const allowed = getAllowedRelationships(keyType);
-  return allowed.includes(relationship) ? relationship : getDefaultRelationship(keyType);
+export const getMultikeyAlgorithmLabel = (algorithm) =>
+  MULTIKEY_ALGORITHM_CONFIG[algorithm]?.label ?? algorithm;
+
+function normalizeRelationship(keyType, relationship, multikeyAlgorithm = null) {
+  const allowed = getAllowedRelationships(keyType, multikeyAlgorithm);
+  return allowed.includes(relationship) ? relationship : getDefaultRelationship(keyType, multikeyAlgorithm);
 }
 
 function normalizeLocalKey(key) {
   const type = KEY_TYPE_CONFIG[key.type] ? key.type : 'Secp256k1';
-  const relationship = normalizeRelationship(type, key.relationship);
+  const multikeyAlgorithm = type === 'Multikey' ? (key.multikeyAlgorithm ?? null) : undefined;
+  const relationship = normalizeRelationship(type, key.relationship, multikeyAlgorithm);
   return {
     ...key,
     type,
+    multikeyAlgorithm,
     relationship,
     publicKeyRaw: key.publicKeyRaw || key.publicKey,
     privateKeyFormat: key.privateKeyFormat || (type === 'Secp256k1' ? 'hex' : null),
@@ -81,6 +120,7 @@ function normalizeLocalKey(key) {
 
 function buildLocalKey({
   type,
+  multikeyAlgorithm = null,
   address = null,
   privateKey = null,
   privateKeyFormat = null,
@@ -90,7 +130,8 @@ function buildLocalKey({
   return normalizeLocalKey({
     id: crypto.randomUUID(),
     type,
-    relationship: getDefaultRelationship(type),
+    multikeyAlgorithm,
+    relationship: getDefaultRelationship(type, multikeyAlgorithm),
     address,
     privateKey,
     privateKeyFormat,
@@ -147,13 +188,17 @@ function isControllerKeyVm(didDocument, vm, key) {
 
 export function getKeyAttributeInput(key) {
   const kp = normalizeLocalKey(key);
-  const typeConfig = KEY_TYPE_CONFIG[kp.type];
-  const relationship = normalizeRelationship(kp.type, kp.relationship);
-  const purpose = RELATIONSHIP_CONFIG[relationship].attrSegment;
+  const purpose = RELATIONSHIP_CONFIG[kp.relationship]?.attrSegment ?? 'veriKey';
 
+  if (kp.type === 'Multikey') {
+    // Multikey attr name has no encoding hint; the multicodec prefix is embedded in the value.
+    return { name: `did/pub/Multikey/${purpose}`, relationship: kp.relationship, value: kp.publicKeyRaw };
+  }
+
+  const typeConfig = KEY_TYPE_CONFIG[kp.type];
   return {
     name: `did/pub/${typeConfig.didType}/${purpose}/${typeConfig.encoding}`,
-    relationship,
+    relationship: kp.relationship,
     value: kp.publicKeyRaw,
   };
 }
@@ -200,6 +245,12 @@ export function vmToAttributeInput(vm, didDocument) {
   } else if (vm.publicKeyBase64 != null) {
     encoding = 'base64';
     value = ethers.hexlify(ethers.decodeBase64(vm.publicKeyBase64));
+  } else if (vm.publicKeyMultibase != null) {
+    if (!vm.publicKeyMultibase.startsWith('z'))
+      throw new Error(`Unsupported multibase encoding: '${vm.publicKeyMultibase[0]}'`);
+    // base58btc — value already carries the multicodec prefix; no encoding hint in name.
+    encoding = null;
+    value = ethers.toBeHex(ethers.decodeBase58(vm.publicKeyMultibase.slice(1)));
   } else {
     throw new Error('Cannot determine key encoding from verification method.');
   }
@@ -208,7 +259,10 @@ export function vmToAttributeInput(vm, didDocument) {
   const relationship = relationships[0] ?? 'assertionMethod';
   const purpose = RELATIONSHIP_CONFIG[relationship]?.attrSegment ?? 'veriKey';
 
-  return { name: `did/pub/${algorithm}/${purpose}/${encoding}`, value };
+  const name = encoding
+    ? `did/pub/${algorithm}/${purpose}/${encoding}`
+    : `did/pub/${algorithm}/${purpose}`;
+  return { name, value };
 }
 
 export function keyMatchesVerificationMethod(key, vm, didDocument = null) {
@@ -225,6 +279,13 @@ export function keyMatchesVerificationMethod(key, vm, didDocument = null) {
 
   if (kp.type === 'X25519') {
     return vm.type?.includes('X25519') && vm.publicKeyBase58 === kp.publicKey;
+  }
+
+  if (kp.type === 'Multikey') {
+    if (!vm.publicKeyMultibase?.startsWith('z')) return false;
+    // Decode base58btc and compare hex — both include the multicodec prefix.
+    const vmHex = ethers.toBeHex(ethers.decodeBase58(vm.publicKeyMultibase.slice(1)));
+    return vmHex.toLowerCase() === kp.publicKeyRaw.toLowerCase();
   }
 
   return false;
@@ -264,7 +325,91 @@ export const saveLocalKeys = (keys) =>
 
 // ── Key generation ────────────────────────────────────────────────────────
 
-export async function generateKeyPair(type = 'Secp256k1') {
+/** Generate a Multikey key pair for the given algorithm, prepending the multicodec prefix. */
+async function generateMultikeyPair(algorithm) {
+  const config = MULTIKEY_ALGORITHM_CONFIG[algorithm];
+  if (!config) throw new Error(`Unknown Multikey algorithm: ${algorithm}`);
+  const prefix = config.multicodecPrefix;
+
+  let pubBytes, privateKey, privateKeyFormat;
+
+  switch (algorithm) {
+    case 'BLS12-381-G2': {
+      // shortSignatures → G2 public keys (96 bytes)
+      const { bls12_381 } = await import('https://esm.sh/@noble/curves@2.0.0/bls12-381.js');
+      const { secretKey, publicKey: pubPoint } = bls12_381.shortSignatures.keygen();
+      pubBytes = pubPoint.toBytes();
+      privateKey = ethers.hexlify(secretKey);
+      privateKeyFormat = 'hex';
+      break;
+    }
+    case 'P-256': {
+      const { p256 } = await import('https://esm.sh/@noble/curves@2.0.0/nist.js');
+      const { secretKey, publicKey } = p256.keygen();
+      pubBytes = publicKey; // 33-byte compressed Uint8Array
+      privateKey = ethers.hexlify(secretKey);
+      privateKeyFormat = 'hex';
+      break;
+    }
+    case 'ML-DSA-44': {
+      const { ml_dsa44 } = await import('https://esm.sh/@noble/post-quantum@0.6.1/ml-dsa.js');
+      const { secretKey, publicKey } = ml_dsa44.keygen();
+      pubBytes = publicKey; // 1312 bytes
+      privateKey = ethers.encodeBase64(secretKey);
+      privateKeyFormat = 'base64';
+      break;
+    }
+    case 'SLH-DSA-Shake-256f': {
+      const { slh_dsa_shake_256f } = await import('https://esm.sh/@noble/post-quantum@0.6.1/slh-dsa.js');
+      const { secretKey, publicKey } = slh_dsa_shake_256f.keygen();
+      pubBytes = publicKey; // 64 bytes
+      privateKey = ethers.encodeBase64(secretKey);
+      privateKeyFormat = 'base64';
+      break;
+    }
+    case 'ML-KEM-768': {
+      const { ml_kem768 } = await import('https://esm.sh/@noble/post-quantum@0.6.1/ml-kem.js');
+      const { secretKey, publicKey } = ml_kem768.keygen();
+      pubBytes = publicKey; // 1184 bytes
+      privateKey = ethers.encodeBase64(secretKey);
+      privateKeyFormat = 'base64';
+      break;
+    }
+    case 'Secp256k1': {
+      const wallet = ethers.Wallet.createRandom();
+      pubBytes = ethers.getBytes(wallet.signingKey.compressedPublicKey);
+      privateKey = wallet.privateKey;
+      privateKeyFormat = 'hex';
+      break;
+    }
+    case 'Ed25519': {
+      const kp = await generateWebCryptoKeyPair('Ed25519', 'Ed25519', ['sign', 'verify']);
+      pubBytes = ethers.getBytes(kp.publicKeyRaw);
+      privateKey = kp.privateKey;
+      privateKeyFormat = kp.privateKeyFormat;
+      break;
+    }
+    case 'X25519': {
+      const kp = await generateWebCryptoKeyPair('X25519', 'X25519', ['deriveKey', 'deriveBits']);
+      pubBytes = ethers.getBytes(kp.publicKeyRaw);
+      privateKey = kp.privateKey;
+      privateKeyFormat = kp.privateKeyFormat;
+      break;
+    }
+    default:
+      throw new Error(`Key generation not supported for Multikey algorithm: ${algorithm}`);
+  }
+
+  // Prepend multicodec prefix; ethers.concat returns a hex string.
+  const publicKeyRaw = ethers.concat([prefix, pubBytes]);
+  return buildLocalKey({ type: 'Multikey', multikeyAlgorithm: algorithm, privateKey, privateKeyFormat, publicKey: publicKeyRaw, publicKeyRaw });
+}
+
+export async function generateKeyPair(type = 'Secp256k1', multikeyAlgorithm = null) {
+  if (type === 'Multikey') {
+    return generateMultikeyPair(multikeyAlgorithm ?? 'BLS12-381-G2');
+  }
+
   if (type === 'Ed25519') {
     return generateWebCryptoKeyPair('Ed25519', 'Ed25519', ['sign', 'verify']);
   }
