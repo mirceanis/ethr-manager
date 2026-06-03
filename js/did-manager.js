@@ -20,6 +20,9 @@ import { OwnerTab }    from './tabs/owner-tab.js';
 
 import { SUPPORTED_NETWORKS, FALLBACK_CHAIN_ID, KEY_VALIDITY_DEFAULT, shortAddr, formatDID, parseIdentityInput, sameAddr, getSupportedNetworkByName } from './utils.js';
 
+import logoUrl        from '../assets/logo.svg';
+import githubWhiteUrl from '../assets/GitHub_Invertocat_White.svg';
+
 // ─────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────
@@ -339,13 +342,13 @@ function DidManager() {
     <header class="header">
       <div class="logo">
         <div class="logo-mark">
-          <img src="./assets/logo.svg" alt="did:ethr logo">
+          <img src="${logoUrl}" alt="did:ethr logo">
         </div>
         <div class="logo-copy">
           <div class="logo-title-row">
             <div class="logo-title">did:ethr Manager</div>
             <a class="github-link" href="https://github.com/mirceanis/ethr-manager" target="_blank" rel="noreferrer" aria-label="GitHub repository" title="GitHub repository">
-              <img src="./assets/GitHub_Invertocat_White.svg" alt="GitHub">
+              <img src="${githubWhiteUrl}" alt="GitHub">
             </a>
           </div>
         </div>
