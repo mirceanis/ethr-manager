@@ -204,6 +204,35 @@ export function getKeyAttributeInput(key) {
 }
 
 /**
+ * Decode a base64url string to a Uint8Array.
+ * JWK coordinate values use base64url (RFC 7517) without padding.
+ */
+function base64urlToBytes(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64.padEnd(b64.length + (4 - (b64.length % 4)) % 4, '=');
+  return ethers.decodeBase64(padded);
+}
+
+/**
+ * Convert a secp256k1 EC JWK to a 0x-prefixed hex-encoded compressed public key.
+ * Returns null when the JWK is not a recognised secp256k1 key.
+ */
+function secp256k1JwkToCompressedHex(jwk) {
+  if (jwk?.kty !== 'EC' || jwk?.crv !== 'secp256k1' || !jwk.x || !jwk.y) return null;
+  try {
+    const xBytes = base64urlToBytes(jwk.x);
+    const yBytes = base64urlToBytes(jwk.y);
+    const prefix = (yBytes[yBytes.length - 1] & 1) === 0 ? 0x02 : 0x03;
+    const compressed = new Uint8Array(33);
+    compressed[0] = prefix;
+    compressed.set(xBytes, 1);
+    return ethers.hexlify(compressed);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Return a human-readable string for the key material carried by a
  * verification method, regardless of which encoding the resolver used.
  * Returns an empty string when no recognised field is present.
@@ -216,7 +245,11 @@ export function getVmDisplayMaterial(vm) {
   if (vm.publicKeyBase58 != null)   return vm.publicKeyBase58;
   if (vm.publicKeyBase64 != null)   return vm.publicKeyBase64;
   if (vm.publicKeyMultibase != null) return vm.publicKeyMultibase;
-  if (vm.publicKeyJwk != null)      return JSON.stringify(vm.publicKeyJwk);
+  if (vm.publicKeyJwk != null) {
+    const compressed = secp256k1JwkToCompressedHex(vm.publicKeyJwk);
+    if (compressed != null) return compressed;
+    return JSON.stringify(vm.publicKeyJwk);
+  }
   if (vm.blockchainAccountId != null) return vm.blockchainAccountId;
   return '';
 }
