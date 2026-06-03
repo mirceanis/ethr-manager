@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.16"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.0",
+    "@noble/post-quantum": "^0.6.1",
+    "did-resolver": "^5.0.1",
+    "ethr-did-resolver": "13.1.0-alpha.1",
+    "ethers": "^6.13.0",
+    "haunted": "^6.1.0",
+    "lit-html": "^3.2.0"
+  }
+}

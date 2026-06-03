@@ -1,6 +1,6 @@
-// Central CDN imports — import from here so versions are pinned in one place.
-export { component, useState, useEffect, useCallback, html } from 'https://esm.sh/haunted@6.1.0';
-export { nothing } from 'https://esm.sh/lit-html@3.2.0';
-export { ethers } from 'https://esm.sh/ethers@6.13.0';
-export { getResolver, EthrDidController } from 'https://esm.sh/ethr-did-resolver@13.1.0-alpha.1';
-export { Resolver } from 'https://esm.sh/did-resolver@5.0.1';
+// Central npm imports — versions are pinned in package.json.
+export { component, useState, useEffect, useCallback, html } from 'haunted';
+export { nothing } from 'lit-html';
+export { ethers } from 'ethers';
+export { getResolver, EthrDidController } from 'ethr-did-resolver';
+export { Resolver } from 'did-resolver';

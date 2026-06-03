@@ -336,7 +336,7 @@ async function generateMultikeyPair(algorithm) {
   switch (algorithm) {
     case 'BLS12-381-G2': {
       // shortSignatures → G2 public keys (96 bytes)
-      const { bls12_381 } = await import('https://esm.sh/@noble/curves@2.0.0/bls12-381.js');
+      const { bls12_381 } = await import('@noble/curves/bls12-381.js');
       const { secretKey, publicKey: pubPoint } = bls12_381.shortSignatures.keygen();
       pubBytes = pubPoint.toBytes();
       privateKey = ethers.hexlify(secretKey);
@@ -344,7 +344,7 @@ async function generateMultikeyPair(algorithm) {
       break;
     }
     case 'P-256': {
-      const { p256 } = await import('https://esm.sh/@noble/curves@2.0.0/nist.js');
+      const { p256 } = await import('@noble/curves/nist.js');
       const { secretKey, publicKey } = p256.keygen();
       pubBytes = publicKey; // 33-byte compressed Uint8Array
       privateKey = ethers.hexlify(secretKey);
@@ -352,7 +352,7 @@ async function generateMultikeyPair(algorithm) {
       break;
     }
     case 'ML-DSA-44': {
-      const { ml_dsa44 } = await import('https://esm.sh/@noble/post-quantum@0.6.1/ml-dsa.js');
+      const { ml_dsa44 } = await import('@noble/post-quantum/ml-dsa.js');
       const { secretKey, publicKey } = ml_dsa44.keygen();
       pubBytes = publicKey; // 1312 bytes
       privateKey = ethers.encodeBase64(secretKey);
@@ -360,7 +360,7 @@ async function generateMultikeyPair(algorithm) {
       break;
     }
     case 'SLH-DSA-Shake-256f': {
-      const { slh_dsa_shake_256f } = await import('https://esm.sh/@noble/post-quantum@0.6.1/slh-dsa.js');
+      const { slh_dsa_shake_256f } = await import('@noble/post-quantum/slh-dsa.js');
       const { secretKey, publicKey } = slh_dsa_shake_256f.keygen();
       pubBytes = publicKey; // 64 bytes
       privateKey = ethers.encodeBase64(secretKey);
@@ -368,7 +368,7 @@ async function generateMultikeyPair(algorithm) {
       break;
     }
     case 'ML-KEM-768': {
-      const { ml_kem768 } = await import('https://esm.sh/@noble/post-quantum@0.6.1/ml-kem.js');
+      const { ml_kem768 } = await import('@noble/post-quantum/ml-kem.js');
       const { secretKey, publicKey } = ml_kem768.keygen();
       pubBytes = publicKey; // 1184 bytes
       privateKey = ethers.encodeBase64(secretKey);
