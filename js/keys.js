@@ -158,6 +158,24 @@ export function getKeyAttributeInput(key) {
   };
 }
 
+/**
+ * Return a human-readable string for the key material carried by a
+ * verification method, regardless of which encoding the resolver used.
+ * Returns an empty string when no recognised field is present.
+ */
+export function getVmDisplayMaterial(vm) {
+  if (vm.publicKeyHex != null) {
+    const hex = vm.publicKeyHex;
+    return hex.startsWith('0x') ? hex : '0x' + hex;
+  }
+  if (vm.publicKeyBase58 != null)   return vm.publicKeyBase58;
+  if (vm.publicKeyBase64 != null)   return vm.publicKeyBase64;
+  if (vm.publicKeyMultibase != null) return vm.publicKeyMultibase;
+  if (vm.publicKeyJwk != null)      return JSON.stringify(vm.publicKeyJwk);
+  if (vm.blockchainAccountId != null) return vm.blockchainAccountId;
+  return '';
+}
+
 export function getVerificationRelationships(didDocument, vm) {
   return Object.keys(RELATIONSHIP_CONFIG).filter(
     relationship => (didDocument?.[relationship] ?? []).includes(vm.id),

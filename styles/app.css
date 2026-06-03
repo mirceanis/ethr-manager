@@ -94,9 +94,16 @@ body::before {
 }
 
 .key-copy,
-.key-created-at {
+.key-created-at,
+.key-id-fragment {
   margin-top: 3px;
   font-size: 11px;
+}
+
+.key-id-fragment {
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* Layout */

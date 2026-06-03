@@ -15,6 +15,7 @@ import {
   getVerificationRelationships,
   isLocalKeyOnDidDocument,
   keyMatchesVerificationMethod,
+  getVmDisplayMaterial,
 } from '../keys.js';
 
 /**
@@ -214,7 +215,10 @@ export const KeysTab = ({
       ${externalVMs.length > 0 ? html`
         <hr class="divider">
         <div class="card-title">External keys (from DID document)</div>
-        ${externalVMs.map(vm => html`
+        ${externalVMs.map(vm => {
+          const material = getVmDisplayMaterial(vm);
+          const idFragment = vm.id?.includes('#') ? vm.id.split('#').pop() : vm.id;
+          return html`
           <div class="key-item">
             <div class="key-icon">🔏</div>
             <div class="key-body">
@@ -225,11 +229,13 @@ export const KeysTab = ({
                   <span class="badge badge-muted badge-offset">${getRelationshipLabel(relationship)}</span>
                 `)}
               </div>
-              <div class="key-val" title="${vm.publicKeyHex || vm.publicKeyBase58 || vm.blockchainAccountId}">${vm.publicKeyHex ? '0x' + vm.publicKeyHex : (vm.publicKeyBase58 || vm.blockchainAccountId)}</div>
+              <div class="key-val key-id-fragment" title="${vm.id}">#${idFragment}</div>
+              ${material ? html`<div class="key-val" title="${material}">${material}</div>` : nothing}
             </div>
             <button class="btn btn-danger btn-sm" @click=${() => onRemoveExternalKey(vm)} .disabled=${txPending || !canManage}>Remove</button>
           </div>
-        `)}
+        `;
+        })}
       ` : nothing}
     </div>
   `;
